@@ -1,0 +1,20 @@
+[
+  {
+    "farm_id": 1,
+    "farm_name": "ฟาร์มที่ 1",
+    "farm_type": "โรงปลูก",
+    "farm_description": "รายละเอียดของฟาร์มที่ 1",
+    "farm_status": 1,
+    "temperature": 25.5,
+    "humidity": 60.0
+  },
+  {
+    "farm_id": 2,
+    "farm_name": "ฟาร์มที่ 2",
+    "farm_type": "เพาะ",
+    "farm_description": "รายละเอียดของฟาร์มที่ 2",
+    "farm_status": 1,
+    "temperature": 23.0,
+    "humidity": 55.0
+  }
+]

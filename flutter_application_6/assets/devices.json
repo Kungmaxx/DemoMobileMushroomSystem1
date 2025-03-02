@@ -1,0 +1,14 @@
+[
+  {
+    "device_id": 10001,
+    "device_name": "Sensor_001",
+    "description": "เซ็นเซอร์ตรวจวัดที่ 1",
+    "status": "active"
+  },
+  {
+    "device_id": 10002,
+    "device_name": "Sensor_002",
+    "description": "เซ็นเซอร์ตรวจวัดที่ 2",
+    "status": "inactive"
+  }
+]

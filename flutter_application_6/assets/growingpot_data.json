@@ -1,0 +1,66 @@
+{
+  "growingpots": [
+    {
+      "growing_pot_id": 1013,
+      "index": 1,
+      "img_path": "path/to/image1.jpg",
+      "ai_result": "ผลการวิเคราะห์ AI - ดี",
+      "status": "active",
+      "device": {
+        "device_id": 10001,
+        "device_name": "Sensor_001",
+        "description": "เซ็นเซอร์ตรวจวัดอุณหภูมิและความชื้น",
+        "status": "active"
+      },
+      "mushroom": {
+        "type_pot_id": 111101,
+        "type_pot_name": "เห็ดนางฟ้า",
+        "description": "เห็ดที่นิยมปลูกในโรงเรือน ควบคุมอุณหภูมิได้ง่าย",
+        "status": 1
+      },
+      "growing": {
+        "growing_id": 101,
+        "farm": {
+          "farm_id": 1,
+          "farm_name": "ฟาร์มที่ 1",
+          "farm_type": "โรงปลูก",
+          "farm_description": "รายละเอียดของฟาร์มที่ 1",
+          "farm_status": 1,
+          "temperature": 25.5,
+          "humidity": 60.0
+        }
+      }
+    },
+    {
+      "growing_pot_id": 1014,
+      "index": 2,
+      "img_path": "path/to/image2.jpg",
+      "ai_result": "ผลการวิเคราะห์ AI - ค่อนข้างดี",
+      "status": "active",
+      "device": {
+        "device_id": 10002,
+        "device_name": "Sensor_002",
+        "description": "เซ็นเซอร์ตรวจวัดระดับ CO2",
+        "status": "inactive"
+      },
+      "mushroom": {
+        "type_pot_id": 111102,
+        "type_pot_name": "เห็ดหลินจือ",
+        "description": "เห็ดสมุนไพรที่มีคุณค่าทางยา",
+        "status": 1
+      },
+      "growing": {
+        "growing_id": 102,
+        "farm": {
+          "farm_id": 2,
+          "farm_name": "ฟาร์มที่ 2",
+          "farm_type": "เพาะ",
+          "farm_description": "รายละเอียดของฟาร์มที่ 2",
+          "farm_status": 1,
+          "temperature": 23.0,
+          "humidity": 55.0
+        }
+      }
+    }
+  ]
+}
