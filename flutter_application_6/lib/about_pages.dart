@@ -18,12 +18,6 @@ class AboutPages extends StatelessWidget {
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
               ),
-              Center(
-                child: Image.network(
-                  "https://cdn.grange.co.uk/assets/new-cars/lamborghini/revuelto/revuelto-1_20241107093150469.png",
-                  height: 150,
-                ),
-              ),
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {

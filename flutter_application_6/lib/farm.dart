@@ -2,27 +2,29 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
 
 const String url = 'assets/farms.json';
+const String urlApi = 'http://192.168.81.223:5000/api/farm';
 
-// ฟังก์ชันโหลดข้อมูล JSON สำหรับ farm
 Future<String> fetchFarmData() async {
   try {
-    String jsonString = await rootBundle.loadString('assets/farms.json');
-    debugPrint(jsonString);
-    return jsonString;
+    final response = await http.get(Uri.parse(urlApi));
+    if (response.statusCode == 200) {
+      debugPrint(response.body);
+      return response.body;
+    } else {
+      throw Exception(
+          'Failed to load data. Status code: ${response.statusCode}');
+    }
   } catch (e) {
-    throw Exception('Failed to load local JSON file: $e');
+    throw Exception('Failed to load data: $e');
   }
 }
 
-// ฟังก์ชันสำหรับ POST farm (ตัวอย่างส่ง HTTP request)
-// ในกรณีนี้จะไม่ทำงานกับไฟล์ local จริง ๆ
 Future<String> postFarmData(Map<String, dynamic> data) async {
   try {
     final response = await http.post(
-      Uri.parse(url),
+      Uri.parse(urlApi),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
@@ -39,11 +41,10 @@ Future<String> postFarmData(Map<String, dynamic> data) async {
   }
 }
 
-// ฟังก์ชันสำหรับ PUT farm (ตัวอย่างส่ง HTTP request)
 Future<String> putFarmData(Map<String, dynamic> data) async {
   try {
     final response = await http.put(
-      Uri.parse(url),
+      Uri.parse(urlApi),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
@@ -60,16 +61,19 @@ Future<String> putFarmData(Map<String, dynamic> data) async {
   }
 }
 
-// ฟังก์ชันสำหรับ DELETE farm (ลบข้อมูลจาก UI)
 void deleteFarm(List<FarmData> farms, int farmId, Function updateUI) {
   farms.removeWhere((farm) => farm.farm_id == farmId);
   updateUI();
 }
 
-// แปลง JSON เป็น FarmData List
 List<FarmData> parseFarms(String jsonStr) {
-  final List<dynamic> jsonData = json.decode(jsonStr);
-  return jsonData.map((data) => FarmData.fromJson(data)).toList();
+  final decoded = json.decode(jsonStr);
+  if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
+    final List<dynamic> list = decoded['data'];
+    return list.map((data) => FarmData.fromJson(data)).toList();
+  } else {
+    throw Exception("Unexpected JSON format");
+  }
 }
 
 class FarmPage extends StatefulWidget {
@@ -80,14 +84,14 @@ class FarmPage extends StatefulWidget {
 }
 
 class _FarmPageState extends State<FarmPage> {
-  String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
-  List<FarmData> farms = []; // สำหรับเก็บ List ของ FarmData
+  String data = '';
+  List<FarmData> farms = [];
 
   void _loadFarmData() async {
     try {
       String jsonData = await fetchFarmData();
       setState(() {
-        farms = parseFarms(jsonData); // แปลง JSON เป็น FarmData List
+        farms = parseFarms(jsonData).cast<FarmData>();
         data = jsonData;
       });
     } catch (e) {
@@ -97,7 +101,6 @@ class _FarmPageState extends State<FarmPage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<FarmData>
   void _addFakeFarm() {
     final fakeFarm = FarmData(
       farm_id: farms.length + 1,
@@ -113,7 +116,6 @@ class _FarmPageState extends State<FarmPage> {
     });
   }
 
-  // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูลของฟาร์ม
   void _openEditModal(FarmData farm) {
     final TextEditingController nameController =
         TextEditingController(text: farm.farm_name);
@@ -238,7 +240,6 @@ class _FarmPageState extends State<FarmPage> {
                                 _openEditModal(farm);
                               },
                             ),
-                            // ปุ่ม Delete
                             IconButton(
                               icon: const Icon(Icons.delete),
                               onPressed: () {
@@ -300,9 +301,14 @@ class FarmData {
       farm_name: json['farm_name'],
       farm_type: json['farm_type'],
       farm_description: json['farm_description'],
-      farm_status: json['farm_status'],
-      temperature: (json['temperature'] as num).toDouble(),
-      humidity: (json['humidity'] as num).toDouble(),
+      farm_status: json['farm_status'] is bool
+          ? (json['farm_status'] ? 1 : 0)
+          : json['farm_status'],
+      temperature: json['temperature'] != null
+          ? (json['temperature'] as num).toDouble()
+          : 0.0,
+      humidity:
+          json['humidity'] != null ? (json['humidity'] as num).toDouble() : 0.0,
     );
   }
 }

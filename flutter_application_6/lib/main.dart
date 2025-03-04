@@ -24,16 +24,16 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         appBarTheme:
-            const AppBarTheme(color: Color.fromARGB(255, 186, 224, 16)),
+            const AppBarTheme(color: Color.fromARGB(255, 179, 179, 179)),
         colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color.fromARGB(255, 162, 229, 18)),
+            seedColor: const Color.fromARGB(255, 179, 179, 179)),
         useMaterial3: true,
       ),
       initialRoute: "/",
       routes: {
         '/about_pages': (context) => const CustomScaffold(
               body: AboutPages(),
-              title: 'About Pages',
+              title: 'Route Page Example',
             ),
         '/http_basic': (context) => const CustomScaffold(
               body: UserPage(),
@@ -67,12 +67,11 @@ class MyApp extends StatelessWidget {
               body: GrowingpotPage(),
               title: 'Growingpot Page',
             ),
-        '/pin': (context) =>
-            const PinPage(), // No navigation drawer for PinPage
+        '/pin': (context) => const PinPage(), // No navigation drawer
       },
       home: const CustomScaffold(
         body: AboutPages(),
-        title: 'About Pages',
+        title: 'Route Page Example',
       ),
     );
   }

@@ -49,7 +49,6 @@ class CustomScaffold extends StatelessWidget {
                 Navigator.pushNamed(context, '/http_basic');
               },
             ),
-            // Add more ListTile widgets for other routes
           ],
         ),
       ),

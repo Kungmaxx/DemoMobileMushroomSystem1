@@ -1,70 +1,105 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:http/http.dart' as http;
 
-const String url = 'assets/growingpotdata.json';
+const String url = 'http://192.168.81.223:5000/api/viewGrowing/1';
 
-// ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData() async {
   try {
-    String jsonString = await rootBundle.loadString(url);
-    debugPrint(jsonString);
-    return jsonString;
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      debugPrint(response.body);
+      return response.body;
+    } else {
+      throw Exception(
+          'Failed to load data. Status code: ${response.statusCode}');
+    }
   } catch (e) {
-    throw Exception('Failed to load local JSON file: $e');
+    throw Exception('Failed to load data: $e');
   }
 }
 
-// ฟังก์ชันสำหรับ POST ข้อมูล (จำลองการเพิ่มข้อมูล)
 Future<String> postData(Map<String, dynamic> data) async {
   try {
-    print("Post Data: $data");
-    return Future.value(json.encode(data));
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(data),
+    );
+
+    if (response.statusCode == 201) {
+      print("postData 201");
+      return response.body;
+    } else {
+      throw Exception(
+          'Failed to post data. Status code: ${response.statusCode}');
+    }
   } catch (e) {
     throw Exception('Failed to post data: $e');
   }
 }
 
-// ฟังก์ชันสำหรับ PUT ข้อมูล (จำลองการแก้ไขข้อมูล)
 Future<String> putData(Map<String, dynamic> data) async {
   try {
-    print("Put Data: $data");
-    return Future.value(json.encode(data));
+    final response = await http.put(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(data),
+    );
+
+    if (response.statusCode == 200) {
+      print("putData 200");
+      return response.body;
+    } else {
+      throw Exception(
+          'Failed to update data. Status code: ${response.statusCode}');
+    }
   } catch (e) {
     throw Exception('Failed to update data: $e');
   }
 }
 
-// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI)
-void deleteGrowingPot(List<GrowingPot> pots, int potId, Function updateUI) {
-  pots.removeWhere((pot) => pot.growingPotId == potId);
-  updateUI();
+Future<void> deleteData(int growingPotId) async {
+  try {
+    final deleteUrl = '$url/$growingPotId';
+    final response = await http.delete(Uri.parse(deleteUrl));
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Failed to delete data. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('Failed to delete data: $e');
+  }
 }
 
-// ฟังก์ชันสำหรับแก้ไขข้อมูล GrowingPot (แก้ไข ai_result, deviceName, mushroomType, growingId)
-void editGrowingPot(
-  List<GrowingPot> pots,
-  int potId,
-  String newAiResult,
-  String newDeviceName,
-  String newMushroomType,
-  int newGrowingId,
-  Function updateUI,
-) {
+void deleteGrowingPot(
+    List<GrowingPot> pots, int potId, Function updateUI) async {
+  try {
+    await deleteData(potId);
+    pots.removeWhere((pot) => pot.growingPotId == potId);
+    updateUI();
+  } catch (e) {
+    throw Exception('Failed to delete growing pot: $e');
+  }
+}
+
+void editGrowingPot(List<GrowingPot> pots, int potId, String newAiResult,
+    String newPotName, Function updateUI) {
   GrowingPot pot = pots.firstWhere((pot) => pot.growingPotId == potId);
   pot.aiResult = newAiResult;
-  pot.device.deviceName = newDeviceName;
-  pot.mushroom.typePotName = newMushroomType;
-  pot.growing.growingId = newGrowingId;
+  pot.potName = newPotName;
   updateUI();
 }
 
-// แปลง JSON เป็น List<GrowingPot>
 List<GrowingPot> parseGrowingPots(String jsonStr) {
-  final Map<String, dynamic> jsonData = json.decode(jsonStr);
-  final List<dynamic> list = jsonData['growingpots'];
-  return list.map((data) => GrowingPot.fromJson(data)).toList();
+  final decoded = json.decode(jsonStr);
+  if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
+    final List<dynamic> list = decoded['data'];
+    return list.map((data) => GrowingPot.fromJson(data)).toList();
+  } else {
+    throw Exception("Unexpected JSON format");
+  }
 }
 
 class GrowingpotPage extends StatefulWidget {
@@ -75,8 +110,8 @@ class GrowingpotPage extends StatefulWidget {
 }
 
 class _GrowingpotPageState extends State<GrowingpotPage> {
-  String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
-  List<GrowingPot> pots = []; // สำหรับเก็บ List ของ GrowingPot
+  String data = '';
+  List<GrowingPot> pots = [];
 
   void _loadData() async {
     try {
@@ -92,54 +127,28 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<GrowingPot>
   void _addFakeGrowingPot() {
     final fakePot = GrowingPot(
       growingPotId: pots.isEmpty ? 1013 : pots.last.growingPotId + 1,
+      growingId: 1,
+      typePotId: 111100,
       index: pots.isEmpty ? 1 : pots.last.index + 1,
       imgPath: 'path/to/fake_image.jpg',
       aiResult: 'ผลการวิเคราะห์ AI - ดี',
       status: 'active',
-      device: Device(
-        deviceId: 10000,
-        deviceName: 'Fake Sensor',
-        description: 'Fake sensor description',
-        status: 'active',
-      ),
-      mushroom: Mushroom(
-        typePotId: 111100,
-        typePotName: 'Fake Mushroom',
-        description: 'Fake mushroom description',
-        status: 1,
-      ),
-      growing: Growing(
-        growingId: 100,
-        farm: Farm(
-          farmId: 1,
-          farmName: 'Fake Farm',
-          farmType: 'Fake Type',
-          farmDescription: 'Fake farm description',
-          farmStatus: 1,
-          temperature: 25.0,
-          humidity: 50.0,
-        ),
-      ),
+      potName: 'Fake Pot Name',
+      typePotName: 'Fake Type Pot Name',
     );
     setState(() {
       pots.add(fakePot);
     });
   }
 
-  // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูล GrowingPot
   void _openEditModal(GrowingPot pot) {
     final TextEditingController aiResultController =
         TextEditingController(text: pot.aiResult);
-    final TextEditingController deviceNameController =
-        TextEditingController(text: pot.device.deviceName);
-    final TextEditingController mushroomTypeController =
-        TextEditingController(text: pot.mushroom.typePotName);
-    final TextEditingController growingIdController =
-        TextEditingController(text: pot.growing.growingId.toString());
+    final TextEditingController potNameController =
+        TextEditingController(text: pot.potName);
 
     showDialog(
       context: context,
@@ -154,17 +163,8 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
                   decoration: const InputDecoration(labelText: 'AI Result'),
                 ),
                 TextField(
-                  controller: deviceNameController,
-                  decoration: const InputDecoration(labelText: 'Device Name'),
-                ),
-                TextField(
-                  controller: mushroomTypeController,
-                  decoration: const InputDecoration(labelText: 'Mushroom Type'),
-                ),
-                TextField(
-                  controller: growingIdController,
-                  decoration: const InputDecoration(labelText: 'Growing ID'),
-                  keyboardType: TextInputType.number,
+                  controller: potNameController,
+                  decoration: const InputDecoration(labelText: 'Pot Name'),
                 ),
               ],
             ),
@@ -178,15 +178,11 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
             ),
             TextButton(
               onPressed: () {
-                int newGrowingId = int.tryParse(growingIdController.text) ??
-                    pot.growing.growingId;
                 editGrowingPot(
                   pots,
                   pot.growingPotId,
                   aiResultController.text,
-                  deviceNameController.text,
-                  mushroomTypeController.text,
-                  newGrowingId,
+                  potNameController.text,
                   () {
                     setState(() {});
                   },
@@ -226,10 +222,11 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text('AI Result: ${pot.aiResult}'),
-                            Text('Device: ${pot.device.deviceName}'),
-                            Text('Mushroom: ${pot.mushroom.typePotName}'),
-                            Text('Growing ID: ${pot.growing.growingId}'),
-                            Text('Farm: ${pot.growing.farm.farmName}'),
+                            Text('Pot Name: ${pot.potName}'),
+                            Text('Type Pot ID: ${pot.typePotId}'),
+                            Text('Index: ${pot.index}'),
+                            Text('Status: ${pot.status}'),
+                            Text('Type Pot Name: ${pot.typePotName}'),
                           ],
                         ),
                         trailing: Row(
@@ -277,134 +274,41 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
   }
 }
 
-// Model Classes
-
 class GrowingPot {
   final int growingPotId;
+  final int growingId;
+  final int typePotId;
   final int index;
   final String imgPath;
   String aiResult;
   final String status;
-  final Device device;
-  final Mushroom mushroom;
-  final Growing growing;
+  String potName;
+  final String typePotName;
 
   GrowingPot({
     required this.growingPotId,
+    required this.growingId,
+    required this.typePotId,
     required this.index,
     required this.imgPath,
     required this.aiResult,
     required this.status,
-    required this.device,
-    required this.mushroom,
-    required this.growing,
+    required this.potName,
+    required this.typePotName,
   });
 
   factory GrowingPot.fromJson(Map<String, dynamic> json) {
     return GrowingPot(
       growingPotId: json['growing_pot_id'],
-      index: json['index'],
-      imgPath: json['img_path'],
-      aiResult: json['ai_result'],
-      status: json['status'],
-      device: Device.fromJson(json['device']),
-      mushroom: Mushroom.fromJson(json['mushroom']),
-      growing: Growing.fromJson(json['growing']),
-    );
-  }
-}
-
-class Device {
-  final int deviceId;
-  String deviceName;
-  final String description;
-  final String status;
-
-  Device({
-    required this.deviceId,
-    required this.deviceName,
-    required this.description,
-    required this.status,
-  });
-
-  factory Device.fromJson(Map<String, dynamic> json) {
-    return Device(
-      deviceId: json['device_id'],
-      deviceName: json['device_name'],
-      description: json['description'],
-      status: json['status'],
-    );
-  }
-}
-
-class Mushroom {
-  final int typePotId;
-  String typePotName;
-  final String description;
-  final int status;
-
-  Mushroom({
-    required this.typePotId,
-    required this.typePotName,
-    required this.description,
-    required this.status,
-  });
-
-  factory Mushroom.fromJson(Map<String, dynamic> json) {
-    return Mushroom(
-      typePotId: json['type_pot_id'],
-      typePotName: json['type_pot_name'],
-      description: json['description'],
-      status: json['status'],
-    );
-  }
-}
-
-class Growing {
-  int growingId;
-  final Farm farm;
-
-  Growing({
-    required this.growingId,
-    required this.farm,
-  });
-
-  factory Growing.fromJson(Map<String, dynamic> json) {
-    return Growing(
       growingId: json['growing_id'],
-      farm: Farm.fromJson(json['farm']),
-    );
-  }
-}
-
-class Farm {
-  final int farmId;
-  String farmName;
-  final String farmType;
-  final String farmDescription;
-  final int farmStatus;
-  final double temperature;
-  final double humidity;
-
-  Farm({
-    required this.farmId,
-    required this.farmName,
-    required this.farmType,
-    required this.farmDescription,
-    required this.farmStatus,
-    required this.temperature,
-    required this.humidity,
-  });
-
-  factory Farm.fromJson(Map<String, dynamic> json) {
-    return Farm(
-      farmId: json['farm_id'],
-      farmName: json['farm_name'],
-      farmType: json['farm_type'],
-      farmDescription: json['farm_description'],
-      farmStatus: json['farm_status'],
-      temperature: (json['temperature'] as num).toDouble(),
-      humidity: (json['humidity'] as num).toDouble(),
+      typePotId: json['type_pot_id'],
+      index: json['index'] ?? 0,
+      imgPath: json['img_path'] ?? '',
+      aiResult: json['ai_result'] ?? '',
+      status: json['status'],
+      potName: json['pot_name'] ?? '',
+      typePotName:
+          json['typePot'] != null ? json['typePot']['type_pot_name'] : '',
     );
   }
 }

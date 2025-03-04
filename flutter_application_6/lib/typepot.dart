@@ -1,22 +1,25 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
 
-const String url = 'assets/typepot.json';
+const String url = 'http://192.168.81.223:5000/api/mushroom';
 
-// ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData() async {
   try {
-    String jsonString = await rootBundle.loadString(url);
-    debugPrint(jsonString);
-    return jsonString;
+    final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
+      debugPrint(response.body);
+      return response.body;
+    } else {
+      throw Exception(
+          'Failed to load data. Status code: ${response.statusCode}');
+    }
   } catch (e) {
-    throw Exception('Failed to load local JSON file: $e');
+    throw Exception('Failed to load data: $e');
   }
 }
 
-// ฟังก์ชันสำหรับ POST ข้อมูล (จำลองการเพิ่มข้อมูล)
 Future<String> postData(Map<String, dynamic> data) async {
   try {
     // สำหรับตัวอย่างนี้ เราจำลองการ POST โดยไม่ส่งข้อมูลไปเซิร์ฟเวอร์จริง
@@ -27,7 +30,6 @@ Future<String> postData(Map<String, dynamic> data) async {
   }
 }
 
-// ฟังก์ชันสำหรับ PUT ข้อมูล (จำลองการแก้ไขข้อมูล)
 Future<String> putData(Map<String, dynamic> data) async {
   try {
     print("Put Data: $data");
@@ -37,13 +39,11 @@ Future<String> putData(Map<String, dynamic> data) async {
   }
 }
 
-// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI)
 void deleteTypepot(List<Typepot> typepots, int typePotId, Function updateUI) {
   typepots.removeWhere((item) => item.type_pot_id == typePotId);
   updateUI();
 }
 
-// ฟังก์ชันสำหรับแก้ไขข้อมูล Typepot
 void editTypepot(List<Typepot> typepots, int typePotId, String newName,
     String newDescription, int newStatus, Function updateUI) {
   Typepot item = typepots.firstWhere((item) => item.type_pot_id == typePotId);
@@ -53,10 +53,14 @@ void editTypepot(List<Typepot> typepots, int typePotId, String newName,
   updateUI();
 }
 
-// แปลง JSON เป็น List<Typepot>
 List<Typepot> parseTypepots(String jsonStr) {
-  final List<dynamic> jsonData = json.decode(jsonStr);
-  return jsonData.map((data) => Typepot.fromJson(data)).toList();
+  final decoded = json.decode(jsonStr);
+  if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
+    final List<dynamic> list = decoded['data'];
+    return list.map((data) => Typepot.fromJson(data)).toList();
+  } else {
+    throw Exception("Unexpected JSON format");
+  }
 }
 
 class TypepotPage extends StatefulWidget {
@@ -67,14 +71,14 @@ class TypepotPage extends StatefulWidget {
 }
 
 class _TypepotPageState extends State<TypepotPage> {
-  String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
-  List<Typepot> typepots = []; // สำหรับเก็บ List ของ Typepot
+  String data = '';
+  List<Typepot> typepots = [];
 
   void _loadData() async {
     try {
       String jsonData = await fetchData();
       setState(() {
-        typepots = parseTypepots(jsonData); // แปลง JSON เป็น Typepot List
+        typepots = parseTypepots(jsonData);
         data = jsonData;
       });
     } catch (e) {
@@ -84,7 +88,6 @@ class _TypepotPageState extends State<TypepotPage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอก (Post Data)
   void _addFakeTypepot() {
     final fakeTypepot = Typepot(
       type_pot_id: typepots.isEmpty ? 111101 : typepots.last.type_pot_id + 1,
@@ -97,7 +100,6 @@ class _TypepotPageState extends State<TypepotPage> {
     });
   }
 
-  // ฟังก์ชันเปิด modal แก้ไขข้อมูล Typepot
   void _openEditModal(Typepot item) {
     final TextEditingController nameController =
         TextEditingController(text: item.type_pot_name);
@@ -165,7 +167,6 @@ class _TypepotPageState extends State<TypepotPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // แสดง ListView ถ้ามีข้อมูล
             if (typepots.isNotEmpty)
               Expanded(
                 child: ListView.builder(
@@ -185,14 +186,12 @@ class _TypepotPageState extends State<TypepotPage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // ปุ่ม Edit
                             IconButton(
                               icon: const Icon(Icons.edit),
                               onPressed: () {
                                 _openEditModal(item);
                               },
                             ),
-                            // ปุ่ม Delete
                             IconButton(
                               icon: const Icon(Icons.delete),
                               onPressed: () {
@@ -208,7 +207,6 @@ class _TypepotPageState extends State<TypepotPage> {
                   },
                 ),
               ),
-            // แสดงข้อความเมื่อไม่มีข้อมูล
             if (data.isNotEmpty && typepots.isEmpty)
               Text(
                 data,
@@ -248,7 +246,8 @@ class Typepot {
       type_pot_id: json['type_pot_id'],
       type_pot_name: json['type_pot_name'],
       description: json['description'],
-      status: json['status'],
+      status:
+          json['status'] is bool ? (json['status'] ? 1 : 0) : json['status'],
     );
   }
 }

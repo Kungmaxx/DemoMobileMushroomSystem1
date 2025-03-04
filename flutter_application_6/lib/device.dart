@@ -2,30 +2,33 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
 
 const String url = 'assets/devices.json';
+const String apiUrl = 'http://192.168.81.223:5000/api/device';
 
-// ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData() async {
   try {
-    String jsonString = await rootBundle.loadString(url);
-    debugPrint(jsonString);
-    return jsonString;
+    final response = await http.get(Uri.parse(apiUrl));
+    print(response);
+    if (response.statusCode == 200) {
+      debugPrint(response.body);
+      return response.body;
+    } else {
+      throw Exception(
+          'Failed to load data. Status code: ${response.statusCode}');
+    }
   } catch (e) {
-    throw Exception('Failed to load local JSON file: $e');
+    throw Exception('Failed to load data: $e');
   }
 }
 
-// ฟังก์ชันสำหรับ POST ข้อมูล
 Future<String> postData(Map<String, dynamic> data) async {
   try {
     final response = await http.post(
-      Uri.parse(url),
+      Uri.parse(apiUrl),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
-
     if (response.statusCode == 201) {
       print("postData 201");
       return response.body;
@@ -38,15 +41,13 @@ Future<String> postData(Map<String, dynamic> data) async {
   }
 }
 
-// ฟังก์ชันสำหรับ PUT ข้อมูล
 Future<String> putData(Map<String, dynamic> data) async {
   try {
     final response = await http.put(
-      Uri.parse(url),
+      Uri.parse(apiUrl),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
-
     if (response.statusCode == 200) {
       print("putData 200");
       return response.body;
@@ -59,13 +60,19 @@ Future<String> putData(Map<String, dynamic> data) async {
   }
 }
 
-// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI)
-void deleteDevice(List<Device> devices, int deviceId, Function updateUI) {
-  devices.removeWhere((device) => device.device_id == deviceId);
-  updateUI();
+Future<void> deleteData(int deviceId) async {
+  try {
+    final deleteUrl = '$apiUrl/$deviceId';
+    final response = await http.delete(Uri.parse(deleteUrl));
+    if (response.statusCode != 200) {
+      throw Exception(
+          'Failed to delete data. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('Failed to delete data: $e');
+  }
 }
 
-// ฟังก์ชันสำหรับแก้ไขข้อมูลอุปกรณ์
 void editDevice(List<Device> devices, int deviceId, String newName,
     String newDescription, String newStatus, Function updateUI) {
   Device device = devices.firstWhere((device) => device.device_id == deviceId);
@@ -75,10 +82,24 @@ void editDevice(List<Device> devices, int deviceId, String newName,
   updateUI();
 }
 
-// แปลง JSON เป็น Device List
+void deleteDevice(List<Device> devices, int deviceId, Function updateUI) async {
+  try {
+    await deleteData(deviceId);
+    devices.removeWhere((device) => device.device_id == deviceId);
+    updateUI();
+  } catch (e) {
+    throw Exception('Failed to delete device: $e');
+  }
+}
+
 List<Device> parseDevices(String jsonStr) {
-  final List<dynamic> jsonData = json.decode(jsonStr);
-  return jsonData.map((data) => Device.fromJson(data)).toList();
+  final decoded = json.decode(jsonStr);
+  if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
+    final List<dynamic> list = decoded['data'];
+    return list.map((data) => Device.fromJson(data)).toList();
+  } else {
+    throw Exception("Unexpected JSON format");
+  }
 }
 
 class DevicePage extends StatefulWidget {
@@ -89,15 +110,15 @@ class DevicePage extends StatefulWidget {
 }
 
 class _DevicePageState extends State<DevicePage> {
-  String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
-  List<Device> devices = []; // สำหรับเก็บ List ของ Device
+  String data = '';
+  List<Device> devices = [];
 
   void _loadData() async {
     try {
       String jsonData = await fetchData();
       setState(() {
-        devices = parseDevices(jsonData); // แปลง JSON เป็น Device List
-        data = jsonData; // เก็บข้อมูล JSON
+        devices = parseDevices(jsonData);
+        data = jsonData;
       });
     } catch (e) {
       setState(() {
@@ -106,20 +127,18 @@ class _DevicePageState extends State<DevicePage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<Device>
   void _addFakeDevice() {
     final fakeDevice = Device(
-      device_id: devices.length + 10001, // device_id เริ่มจาก 10001
+      device_id: devices.length + 10001,
       device_name: 'Sensor_${devices.length + 1}',
       description: 'Fake Sensor ${devices.length + 1}',
       status: 'active',
     );
     setState(() {
-      devices.add(fakeDevice); // เพิ่มข้อมูลหลอก
+      devices.add(fakeDevice);
     });
   }
 
-  // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูลอุปกรณ์
   void _openEditModal(Device device) {
     final TextEditingController nameController =
         TextEditingController(text: device.device_name);
@@ -159,7 +178,6 @@ class _DevicePageState extends State<DevicePage> {
             ),
             TextButton(
               onPressed: () {
-                // เรียกฟังก์ชันแก้ไขข้อมูล
                 editDevice(
                   devices,
                   device.device_id,
@@ -206,14 +224,12 @@ class _DevicePageState extends State<DevicePage> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            // ปุ่ม Edit
                             IconButton(
                               icon: const Icon(Icons.edit),
                               onPressed: () {
                                 _openEditModal(device);
                               },
                             ),
-                            // ปุ่ม Delete
                             IconButton(
                               icon: const Icon(Icons.delete),
                               onPressed: () {
