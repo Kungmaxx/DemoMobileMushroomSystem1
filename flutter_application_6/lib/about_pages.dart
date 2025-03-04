@@ -1,8 +1,4 @@
 import 'package:flutter/material.dart';
-import 'display_page.dart';
-import 'welcome_page2.dart';
-import 'my_futurebuilder_page.dart';
-import 'http_basic.dart';
 
 class AboutPages extends StatelessWidget {
   const AboutPages({super.key});
@@ -10,32 +6,6 @@ class AboutPages extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        leading: IconButton(
-          onPressed: () {
-            debugPrint("Leading clicked");
-          },
-          icon: const Icon(Icons.ev_station),
-        ),
-        actions: [
-          IconButton(
-            onPressed: () {
-              debugPrint("Button pressed");
-            },
-            icon: const Icon(Icons.add_alert),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/display_page');
-                debugPrint("ElevatedButton in AppBar pressed");
-              },
-              child: const Text('Display!'),
-            ),
-          ),
-        ],
-      ),
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(12.0),
@@ -57,30 +27,60 @@ class AboutPages extends StatelessWidget {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.pushNamed(context, '/welcome_page2');
-                },
-                child: const Text('Welcome page'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/display_page');
-                },
-                child: const Text('Display page'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/my_futurebuilder_page');
-                },
-                child: const Text('Futurebuilder page'),
-              ),
-              ElevatedButton(
-                onPressed: () {
                   Navigator.pushNamed(context, '/http_basic');
                 },
-                child: const Text('Http Basic page'),
+                child: const Text('user page'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/farm');
+                },
+                child: const Text('farm page'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/device');
+                },
+                child: const Text('device page'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/typepot');
+                },
+                child: const Text('typepot page'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/cultivation');
+                },
+                child: const Text('cultivation page'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/growing');
+                },
+                child: const Text('growing page'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/cultivationpot');
+                },
+                child: const Text('cultivationpot page'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/growingpot');
+                },
+                child: const Text('growingpot page'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, '/pin');
+                },
+                child: const Text('pin page'),
               ),
               IconButton(
-                  icon: Icon(Icons.display_settings),
+                  icon: const Icon(Icons.display_settings),
                   onPressed: () {
                     Navigator.pushNamed(
                       context,

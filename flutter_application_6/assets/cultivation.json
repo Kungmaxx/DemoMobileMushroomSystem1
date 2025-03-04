@@ -1,11 +1,11 @@
 [
-    {
-      "cultivation_id": 201,
-      "farm_id": 1
-    },
-    {
-      "cultivation_id": 202,
-      "farm_id": 2
-    }
-  ]
+  {
+    "cultivation_id": 201,
+    "farm_id": 1
+  },
+  {
+    "cultivation_id": 202,
+    "farm_id": 2
+  }
+]
   
