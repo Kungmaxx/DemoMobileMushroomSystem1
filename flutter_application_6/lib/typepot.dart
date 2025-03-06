@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-const String url = 'http://192.168.1.120:5000/api/mushroom';
+const String url = 'http://192.168.1.100:5000/api/mushroom';
 
 // ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData() async {

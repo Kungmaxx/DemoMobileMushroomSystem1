@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:convert';
-import 'package:http/http.dart' as http; // Import the new Cultivation class
+import 'package:http/http.dart' as http;
 
-const String url = 'http://192.168.1.100:5000/api/viewCultivation/48';
 const String typePotUrl = 'http://192.168.1.100:5000/api/mushroom';
-const String cultivationUrl = 'http://192.168.1.100:5000/api/cultivation';
 
 // ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData(String apiUrl) async {
@@ -27,7 +25,7 @@ Future<void> postData(Map<String, dynamic> data, Function _loadData) async {
   try {
     print('POST Data: $data');
     final response = await http.post(
-      Uri.parse('http://192.168.1.120:5000/api/viewCultivation'),
+      Uri.parse('http://192.168.1.100:5000/api/viewCultivation'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
@@ -39,6 +37,7 @@ Future<void> postData(Map<String, dynamic> data, Function _loadData) async {
           'Failed to post data. Status code: ${response.statusCode}');
     }
   } catch (e) {
+    print('Failed to post data: $e');
     throw Exception('Failed to post data: $e');
   }
 }
@@ -47,11 +46,13 @@ Future<void> postData(Map<String, dynamic> data, Function _loadData) async {
 Future<void> putData(
     int id, Map<String, dynamic> data, Function _loadData) async {
   try {
+    print('PUT Data: $data');
     final response = await http.put(
-      Uri.parse('http://192.168.1.120:5000/api/viewCultivation/$id'),
+      Uri.parse('http://192.168.1.100:5000/api/viewCultivation/$id'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
+    print('PUT Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       _loadData();
     } else {
@@ -59,6 +60,7 @@ Future<void> putData(
           'Failed to update data. Status code: ${response.statusCode}');
     }
   } catch (e) {
+    print('Failed to update data: $e');
     throw Exception('Failed to update data: $e');
   }
 }
@@ -66,10 +68,12 @@ Future<void> putData(
 // ฟังก์ชันสำหรับ DELETE ข้อมูล
 Future<void> deleteData(int id, Function _loadData) async {
   try {
+    print('DELETE Data: $id');
     final response = await http.delete(
-      Uri.parse('http://192.168.1.120:5000/api/viewCultivation/$id'),
+      Uri.parse('http://192.168.1.100:5000/api/viewCultivation/$id'),
       headers: {'Content-Type': 'application/json'},
     );
+    print('DELETE Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 200) {
       _loadData();
     } else {
@@ -77,6 +81,7 @@ Future<void> deleteData(int id, Function _loadData) async {
           'Failed to delete data. Status code: ${response.statusCode}');
     }
   } catch (e) {
+    print('Failed to delete data: $e');
     throw Exception('Failed to delete data: $e');
   }
 }
@@ -94,7 +99,9 @@ List<CultivationPot> parseCultivationPots(String jsonStr) {
 }
 
 class CultivationpotPage extends StatefulWidget {
-  const CultivationpotPage({super.key});
+  final int cultivationId; // Add cultivationId parameter
+
+  const CultivationpotPage({super.key, required this.cultivationId});
 
   @override
   State<CultivationpotPage> createState() => _CultivationpotPageState();
@@ -115,7 +122,8 @@ class _CultivationpotPageState extends State<CultivationpotPage> {
 
   void _loadData() async {
     try {
-      String cultivationPotData = await fetchData(url);
+      String cultivationPotData = await fetchData(
+          'http://192.168.1.100:5000/api/viewCultivation/${widget.cultivationId}');
       String typePotData = await fetchData(typePotUrl);
 
       setState(() {
@@ -306,11 +314,14 @@ class _CultivationpotPageState extends State<CultivationpotPage> {
                 int newTypePotId = typePots
                     .firstWhere((t) => t.typePotName == selectedTypePot)
                     .typePotId;
+                print(
+                    'POST Data: Type Pot ID: $newTypePotId, Pot Name: ${potNameController.text}, Status: $selectedStatus');
                 await postData({
                   'type_pot_id': newTypePotId,
                   'pot_name': potNameController.text,
                   'status': selectedStatus,
-                  'cultivation_id': 48, // Add the cultivation_id field
+                  'cultivation_id':
+                      widget.cultivationId, // Add the cultivation_id field
                 }, _loadData);
                 Navigator.of(context).pop();
               },
@@ -465,6 +476,26 @@ class TypePot {
     return TypePot(
       typePotId: json['type_pot_id'],
       typePotName: json['type_pot_name'],
+    );
+  }
+}
+
+class Cultivation {
+  final int cultivationId;
+  int farmId;
+  int deviceId;
+
+  Cultivation({
+    required this.cultivationId,
+    required this.farmId,
+    required this.deviceId,
+  });
+
+  factory Cultivation.fromJson(Map<String, dynamic> json) {
+    return Cultivation(
+      cultivationId: json['cultivation_id'],
+      farmId: json['farm_id'],
+      deviceId: json['device_id'],
     );
   }
 }

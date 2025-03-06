@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_6/cultivationpot.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-const String url = 'http://192.168.1.120:5000/api/cultivation';
-const String deviceUrl = 'http://192.168.1.120:5000/api/device';
-const String farmUrl = 'http://192.168.1.120:5000/api/farm';
+const String url = 'http://192.168.1.100:5000/api/cultivation';
+const String deviceUrl = 'http://192.168.1.100:5000/api/device';
+const String farmUrl = 'http://192.168.1.100:5000/api/farm';
 
 // ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData(String apiUrl) async {
@@ -91,7 +92,8 @@ List<Cultivation> parseCultivations(String jsonStr) {
 }
 
 class CultivationPage extends StatefulWidget {
-  const CultivationPage({super.key});
+  final int? cultivationId;
+  const CultivationPage({super.key, this.cultivationId});
 
   @override
   State<CultivationPage> createState() => _CultivationPageState();
@@ -346,6 +348,18 @@ class _CultivationPageState extends State<CultivationPage> {
                               icon: const Icon(Icons.delete),
                               onPressed: () {
                                 deleteData(item.cultivation_id, _loadData);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.send),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => CultivationpotPage(
+                                        cultivationId: item.cultivation_id),
+                                  ),
+                                );
                               },
                             ),
                           ],

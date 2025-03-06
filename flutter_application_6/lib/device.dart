@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 const String url = 'assets/devices.json';
-const String apiUrl = 'http://192.168.1.120:5000/api/device';
+const String apiUrl = 'http://192.168.1.100:5000/api/device';
 
 // ฟังก์ชันโหลดข้อมูลจาก API
 Future<String> fetchData() async {

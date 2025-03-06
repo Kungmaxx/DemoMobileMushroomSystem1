@@ -2,15 +2,14 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+// Import the Growing class
 
-const String url = 'http://192.168.1.120:5000/api/viewGrowing/9';
+const String typePotUrl = 'http://192.168.1.100:5000/api/mushroom';
 
-// ฟังก์ชันโหลดข้อมูล JSON
-Future<String> fetchData() async {
+Future<String> fetchData(String apiUrl) async {
   try {
-    final response = await http.get(Uri.parse(url));
+    final response = await http.get(Uri.parse(apiUrl));
     if (response.statusCode == 200) {
-      debugPrint(response.body);
       return response.body;
     } else {
       throw Exception(
@@ -21,18 +20,17 @@ Future<String> fetchData() async {
   }
 }
 
-// ฟังก์ชันสำหรับ POST ข้อมูล (จำลองการเพิ่มข้อมูล)
-Future<String> postData(Map<String, dynamic> data) async {
+Future<void> postData(Map<String, dynamic> data, Function _loadData) async {
   try {
+    print('POST Data: $data');
     final response = await http.post(
-      Uri.parse(url),
+      Uri.parse('http://192.168.1.100:5000/api/viewGrowing'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
-
+    print('POST Response: ${response.statusCode} ${response.body}');
     if (response.statusCode == 201) {
-      print("postData 201");
-      return response.body;
+      _loadData();
     } else {
       throw Exception(
           'Failed to post data. Status code: ${response.statusCode}');
@@ -42,18 +40,16 @@ Future<String> postData(Map<String, dynamic> data) async {
   }
 }
 
-// ฟังก์ชันสำหรับ PUT ข้อมูล (จำลองการแก้ไขข้อมูล)
-Future<String> putData(Map<String, dynamic> data) async {
+Future<void> putData(
+    int id, Map<String, dynamic> data, Function _loadData) async {
   try {
     final response = await http.put(
-      Uri.parse(url),
+      Uri.parse('http://192.168.1.100:5000/api/viewGrowing/$id'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
-
     if (response.statusCode == 200) {
-      print("putData 200");
-      return response.body;
+      _loadData();
     } else {
       throw Exception(
           'Failed to update data. Status code: ${response.statusCode}');
@@ -63,12 +59,15 @@ Future<String> putData(Map<String, dynamic> data) async {
   }
 }
 
-// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI)
-Future<void> deleteData(int growingPotId) async {
+Future<void> deleteData(int id, Function _loadData) async {
   try {
-    final deleteUrl = '$url/$growingPotId';
-    final response = await http.delete(Uri.parse(deleteUrl));
-    if (response.statusCode != 200) {
+    final response = await http.delete(
+      Uri.parse('http://192.168.1.100:5000/api/viewGrowing/$id'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (response.statusCode == 200) {
+      _loadData();
+    } else {
       throw Exception(
           'Failed to delete data. Status code: ${response.statusCode}');
     }
@@ -77,30 +76,9 @@ Future<void> deleteData(int growingPotId) async {
   }
 }
 
-// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI และ API)
-void deleteGrowingPot(
-    List<GrowingPot> pots, int potId, Function updateUI) async {
-  try {
-    await deleteData(potId);
-    pots.removeWhere((pot) => pot.growingPotId == potId);
-    updateUI();
-  } catch (e) {
-    throw Exception('Failed to delete growing pot: $e');
-  }
-}
-
-// ฟังก์ชันสำหรับแก้ไขข้อมูล GrowingPot (แก้ไข ai_result, pot_name)
-void editGrowingPot(List<GrowingPot> pots, int potId, String newAiResult,
-    String newPotName, Function updateUI) {
-  GrowingPot pot = pots.firstWhere((pot) => pot.growingPotId == potId);
-  pot.aiResult = newAiResult;
-  pot.potName = newPotName;
-  updateUI();
-}
-
-// แปลง JSON เป็น List<GrowingPot>
 List<GrowingPot> parseGrowingPots(String jsonStr) {
   final decoded = json.decode(jsonStr);
+  print(decoded);
   if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
     final List<dynamic> list = decoded['data'];
     return list.map((data) => GrowingPot.fromJson(data)).toList();
@@ -110,7 +88,9 @@ List<GrowingPot> parseGrowingPots(String jsonStr) {
 }
 
 class GrowingpotPage extends StatefulWidget {
-  const GrowingpotPage({super.key});
+  final int growingId; // Add growingId parameter
+
+  const GrowingpotPage({super.key, required this.growingId});
 
   @override
   State<GrowingpotPage> createState() => _GrowingpotPageState();
@@ -119,13 +99,25 @@ class GrowingpotPage extends StatefulWidget {
 class _GrowingpotPageState extends State<GrowingpotPage> {
   String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
   List<GrowingPot> pots = []; // สำหรับเก็บ List ของ GrowingPot
+  List<TypePot> typePots = [];
+  String selectedTypePot = '';
+  String selectedStatus = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
   void _loadData() async {
     try {
-      String jsonData = await fetchData();
+      String growingPotData = await fetchData(
+          'http://192.168.1.100:5000/api/viewGrowing/${widget.growingId}');
+      String typePotData = await fetchData(typePotUrl);
+
       setState(() {
-        pots = parseGrowingPots(jsonData);
-        data = jsonData;
+        pots = parseGrowingPots(growingPotData);
+        typePots = parseTypePots(typePotData);
       });
     } catch (e) {
       setState(() {
@@ -134,28 +126,20 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<GrowingPot>
-  void _addFakeGrowingPot() {
-    final fakePot = GrowingPot(
-      growingPotId: pots.isEmpty ? 1013 : pots.last.growingPotId + 1,
-      growingId: 1,
-      typePotId: 111100,
-      index: pots.isEmpty ? 1 : pots.last.index + 1,
-      imgPath: 'path/to/fake_image.jpg',
-      aiResult: 'ผลการวิเคราะห์ AI - ดี',
-      status: 'active',
-      potName: 'Fake Pot Name',
-      typePotName: 'Fake Type Pot Name',
-    );
-    setState(() {
-      pots.add(fakePot);
-    });
+  List<TypePot> parseTypePots(String jsonStr) {
+    final decoded = json.decode(jsonStr);
+    if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
+      final List<dynamic> list = decoded['data'];
+      return list.map((data) => TypePot.fromJson(data)).toList();
+    } else {
+      throw Exception("Unexpected JSON format");
+    }
   }
 
-  // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูล GrowingPot
   void _openEditModal(GrowingPot pot) {
-    final TextEditingController aiResultController =
-        TextEditingController(text: pot.aiResult);
+    String selectedTypePot =
+        typePots.firstWhere((t) => t.typePotId == pot.typePotId).typePotName;
+    String selectedStatus = pot.status;
     final TextEditingController potNameController =
         TextEditingController(text: pot.potName);
 
@@ -167,13 +151,49 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
           content: SingleChildScrollView(
             child: Column(
               children: [
-                TextField(
-                  controller: aiResultController,
-                  decoration: const InputDecoration(labelText: 'AI Result'),
+                DropdownButtonFormField<String>(
+                  value: selectedTypePot,
+                  decoration: const InputDecoration(labelText: 'Type Pot Name'),
+                  items: typePots.map((typePot) {
+                    return DropdownMenuItem(
+                      value: typePot.typePotName,
+                      child: Text(typePot.typePotName),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedTypePot = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Type Pot Name'),
                 ),
                 TextField(
                   controller: potNameController,
                   decoration: const InputDecoration(labelText: 'Pot Name'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'pending',
+                      child: Text('Pending'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'safe',
+                      child: Text('Safe'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'danger',
+                      child: Text('Danger'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedStatus = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Status'),
                 ),
               ],
             ),
@@ -186,19 +206,131 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                editGrowingPot(
-                  pots,
-                  pot.growingPotId,
-                  aiResultController.text,
-                  potNameController.text,
-                  () {
-                    setState(() {});
-                  },
-                );
+              onPressed: () async {
+                int newTypePotId = typePots
+                    .firstWhere((t) => t.typePotName == selectedTypePot)
+                    .typePotId;
+                print(
+                    'PUT Data: ${pot.growingPotId}, Type Pot ID: $newTypePotId, Pot Name: ${potNameController.text}, Status: $selectedStatus');
+                await putData(
+                    pot.growingPotId,
+                    {
+                      'type_pot_id': newTypePotId,
+                      'pot_name': potNameController.text,
+                      'status': selectedStatus,
+                    },
+                    _loadData);
                 Navigator.of(context).pop();
               },
               child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openAddModal() {
+    String selectedTypePot =
+        typePots.isNotEmpty ? typePots.first.typePotName : '';
+    String selectedStatus = 'pending';
+    final TextEditingController potNameController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add GrowingPot'),
+          content: SingleChildScrollView(
+            child: Column(
+              children: [
+                DropdownButtonFormField<String>(
+                  value: selectedTypePot,
+                  decoration: const InputDecoration(labelText: 'Type Pot Name'),
+                  items: typePots.map((typePot) {
+                    return DropdownMenuItem(
+                      value: typePot.typePotName,
+                      child: Text(typePot.typePotName),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    setState(() {
+                      selectedTypePot = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Type Pot Name'),
+                ),
+                TextField(
+                  controller: potNameController,
+                  decoration: const InputDecoration(labelText: 'Pot Name'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'pending',
+                      child: Text('Pending'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'safe',
+                      child: Text('Safe'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'danger',
+                      child: Text('Danger'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedStatus = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Status'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                int newTypePotId = typePots
+                    .firstWhere((t) => t.typePotName == selectedTypePot)
+                    .typePotId;
+                await postData({
+                  'type_pot_id': newTypePotId,
+                  'pot_name': potNameController.text,
+                  'status': selectedStatus,
+                  'growing_id': widget.growingId, // Add the growing_id field
+                }, _loadData);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showImageDialog(String imgPath) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          content: Image.network(imgPath),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Close'),
             ),
           ],
         );
@@ -219,6 +351,9 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
                   itemCount: pots.length,
                   itemBuilder: (context, index) {
                     final pot = pots[index];
+                    final typePotName = typePots
+                        .firstWhere((t) => t.typePotId == pot.typePotId)
+                        .typePotName;
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           vertical: 8, horizontal: 16),
@@ -230,17 +365,20 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
                         subtitle: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('AI Result: ${pot.aiResult}'),
                             Text('Pot Name: ${pot.potName}'),
-                            Text('Type Pot ID: ${pot.typePotId}'),
-                            Text('Index: ${pot.index}'),
+                            Text('Type Pot Name: $typePotName'),
                             Text('Status: ${pot.status}'),
-                            Text('Type Pot Name: ${pot.typePotName}'),
                           ],
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            IconButton(
+                              icon: const Icon(Icons.image),
+                              onPressed: () {
+                                _showImageDialog(pot.imgPath);
+                              },
+                            ),
                             IconButton(
                               icon: const Icon(Icons.edit),
                               onPressed: () {
@@ -250,9 +388,7 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
                             IconButton(
                               icon: const Icon(Icons.delete),
                               onPressed: () {
-                                deleteGrowingPot(pots, pot.growingPotId, () {
-                                  setState(() {});
-                                });
+                                deleteData(pot.growingPotId, _loadData);
                               },
                             ),
                           ],
@@ -267,13 +403,9 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
                 data,
                 style: const TextStyle(fontSize: 18),
               ),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('GET Data'),
-            ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _addFakeGrowingPot,
+              onPressed: _openAddModal,
               child: const Text('Post Data'),
             ),
           ],
@@ -283,43 +415,72 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
   }
 }
 
-// Model Classes
-
+// Class สำหรับแปลง JSON
 class GrowingPot {
   final int growingPotId;
-  final int growingId;
   final int typePotId;
-  final int index;
+  final int? index; // Allow index to be nullable
   final String imgPath;
   String aiResult;
   final String status;
   String potName;
-  final String typePotName;
 
   GrowingPot({
     required this.growingPotId,
-    required this.growingId,
     required this.typePotId,
-    required this.index,
+    this.index, // Allow index to be nullable
     required this.imgPath,
     required this.aiResult,
     required this.status,
     required this.potName,
-    required this.typePotName,
   });
 
   factory GrowingPot.fromJson(Map<String, dynamic> json) {
     return GrowingPot(
       growingPotId: json['growing_pot_id'],
-      growingId: json['growing_id'],
       typePotId: json['type_pot_id'],
-      index: json['index'] ?? 0,
-      imgPath: json['img_path'] ?? '',
-      aiResult: json['ai_result'] ?? '',
+      index: json['index'], // Allow index to be nullable
+      imgPath: json['img_path'] ?? 'No data entered',
+      aiResult: json['ai_result'] ?? 'No data entered',
       status: json['status'],
-      potName: json['pot_name'] ?? '',
-      typePotName:
-          json['typePot'] != null ? json['typePot']['type_pot_name'] : '',
+      potName: json['pot_name'],
+    );
+  }
+}
+
+class TypePot {
+  final int typePotId;
+  final String typePotName;
+
+  TypePot({
+    required this.typePotId,
+    required this.typePotName,
+  });
+
+  factory TypePot.fromJson(Map<String, dynamic> json) {
+    return TypePot(
+      typePotId: json['type_pot_id'],
+      typePotName: json['type_pot_name'],
+    );
+  }
+}
+
+class Growing {
+  final int growingId;
+  int farmId;
+  int deviceId;
+
+  Growing({
+    required this.growingId,
+    required this.farmId,
+    required this.deviceId,
+  });
+
+  factory Growing.fromJson(Map<String, dynamic> json) {
+    return Growing(
+      growingId: json['growing_id'],
+      farmId: json['farm_id'],
+      deviceId: json['device_id'],
     );
   }
 }

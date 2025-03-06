@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'growingpot.dart'; // Import the GrowingpotPage
 
-const String url = 'http://192.168.1.120:5000/api/growing';
-const String deviceUrl = 'http://192.168.1.120:5000/api/device';
-const String farmUrl = 'http://192.168.1.120:5000/api/farm';
+const String url = 'http://192.168.1.100:5000/api/growing';
+const String deviceUrl = 'http://192.168.1.100:5000/api/device';
+const String farmUrl = 'http://192.168.1.100:5000/api/farm';
 
 // ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData(String apiUrl) async {
@@ -346,6 +347,18 @@ class _GrowingPageState extends State<GrowingPage> {
                               icon: const Icon(Icons.delete),
                               onPressed: () {
                                 deleteData(item.growingId, _loadData);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.send),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => GrowingpotPage(
+                                        growingId: item.growingId),
+                                  ),
+                                );
                               },
                             ),
                           ],

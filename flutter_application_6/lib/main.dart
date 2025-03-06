@@ -60,11 +60,15 @@ class MyApp extends StatelessWidget {
               title: 'Growing Page',
             ),
         '/cultivationpot': (context) => const CustomScaffold(
-              body: CultivationpotPage(),
+              body: CultivationpotPage(
+                cultivationId: 0,
+              ),
               title: 'Cultivationpot Page',
             ),
         '/growingpot': (context) => const CustomScaffold(
-              body: GrowingpotPage(),
+              body: GrowingpotPage(
+                growingId: 0,
+              ),
               title: 'Growingpot Page',
             ),
         '/pin': (context) => const PinPage(), // No navigation drawer
