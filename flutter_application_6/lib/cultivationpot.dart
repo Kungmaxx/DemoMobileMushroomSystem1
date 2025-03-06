@@ -3,8 +3,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-const String url = 'http://192.168.81.223:5000/api/viewCultivation/36';
+const String url = 'http://192.168.1.120:5000/api/viewCultivation/36';
 
+// ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData() async {
   try {
     final response = await http.get(Uri.parse(url));
@@ -16,10 +17,11 @@ Future<String> fetchData() async {
           'Failed to load data. Status code: ${response.statusCode}');
     }
   } catch (e) {
-    throw Exception('Failed to load data: $e');
+    throw Exception('Failed to load data in fetchData: $e');
   }
 }
 
+// ฟังก์ชันสำหรับ POST ข้อมูล (จำลองการเพิ่มข้อมูล)
 Future<String> postData(Map<String, dynamic> data) async {
   try {
     final response = await http.post(
@@ -40,6 +42,7 @@ Future<String> postData(Map<String, dynamic> data) async {
   }
 }
 
+// ฟังก์ชันสำหรับ PUT ข้อมูล (จำลองการแก้ไขข้อมูล)
 Future<String> putData(Map<String, dynamic> data) async {
   try {
     final response = await http.put(
@@ -60,6 +63,7 @@ Future<String> putData(Map<String, dynamic> data) async {
   }
 }
 
+// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI)
 Future<void> deleteData(int cultivationPotId) async {
   try {
     final deleteUrl = '$url/$cultivationPotId';
@@ -73,7 +77,7 @@ Future<void> deleteData(int cultivationPotId) async {
   }
 }
 
-// DELETE DATA FROM UI และ API
+// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI และ API)
 void deleteCultivationPot(
     List<CultivationPot> pots, int potId, Function updateUI) async {
   try {
@@ -85,6 +89,7 @@ void deleteCultivationPot(
   }
 }
 
+// ฟังก์ชันสำหรับแก้ไขข้อมูล CultivationPot (แก้ไข ai_result, pot_name)
 void editCultivationPot(
   List<CultivationPot> pots,
   int potId,
@@ -98,6 +103,7 @@ void editCultivationPot(
   updateUI();
 }
 
+// แปลง JSON เป็น List<CultivationPot>
 List<CultivationPot> parseCultivationPots(String jsonStr) {
   final decoded = json.decode(jsonStr);
   if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
@@ -116,14 +122,15 @@ class CultivationpotPage extends StatefulWidget {
 }
 
 class _CultivationpotPageState extends State<CultivationpotPage> {
-  String data = '';
-  List<CultivationPot> pots = [];
+  String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
+  List<CultivationPot> pots = []; // สำหรับเก็บ List ของ CultivationPot
 
   void _loadData() async {
     try {
       String jsonData = await fetchData();
       setState(() {
-        pots = parseCultivationPots(jsonData);
+        pots = parseCultivationPots(
+            jsonData); // แปลง JSON เป็น CultivationPot List
         data = jsonData;
       });
     } catch (e) {
@@ -133,6 +140,7 @@ class _CultivationpotPageState extends State<CultivationpotPage> {
     }
   }
 
+  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<CultivationPot>
   void _addFakeCultivationPot() {
     final fakePot = CultivationPot(
       cultivationPotId: pots.isEmpty ? 3001 : pots.last.cultivationPotId + 1,
@@ -148,6 +156,7 @@ class _CultivationpotPageState extends State<CultivationpotPage> {
     });
   }
 
+  // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูล CultivationPot
   void _openEditModal(CultivationPot pot) {
     final TextEditingController aiResultController =
         TextEditingController(text: pot.aiResult);

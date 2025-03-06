@@ -4,8 +4,9 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 const String url = 'assets/farms.json';
-const String urlApi = 'http://192.168.81.223:5000/api/farm';
+const String urlApi = 'http://192.168.1.120:5000/api/farm';
 
+// ฟังก์ชันโหลดข้อมูล JSON สำหรับ farm
 Future<String> fetchFarmData() async {
   try {
     final response = await http.get(Uri.parse(urlApi));
@@ -17,10 +18,11 @@ Future<String> fetchFarmData() async {
           'Failed to load data. Status code: ${response.statusCode}');
     }
   } catch (e) {
-    throw Exception('Failed to load data: $e');
+    throw Exception('Failed to load data in fetchData: $e');
   }
 }
 
+// ฟังก์ชันสำหรับ POST farm (ตัวอย่างส่ง HTTP request)
 Future<String> postFarmData(Map<String, dynamic> data) async {
   try {
     final response = await http.post(
@@ -41,6 +43,7 @@ Future<String> postFarmData(Map<String, dynamic> data) async {
   }
 }
 
+// ฟังก์ชันสำหรับ PUT farm (ตัวอย่างส่ง HTTP request)
 Future<String> putFarmData(Map<String, dynamic> data) async {
   try {
     final response = await http.put(
@@ -61,11 +64,13 @@ Future<String> putFarmData(Map<String, dynamic> data) async {
   }
 }
 
+// ฟังก์ชันสำหรับ DELETE farm (ลบข้อมูลจาก UI)
 void deleteFarm(List<FarmData> farms, int farmId, Function updateUI) {
   farms.removeWhere((farm) => farm.farm_id == farmId);
   updateUI();
 }
 
+// แปลง JSON เป็น FarmData List
 List<FarmData> parseFarms(String jsonStr) {
   final decoded = json.decode(jsonStr);
   if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
@@ -84,14 +89,15 @@ class FarmPage extends StatefulWidget {
 }
 
 class _FarmPageState extends State<FarmPage> {
-  String data = '';
-  List<FarmData> farms = [];
+  String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
+  List<FarmData> farms = []; // สำหรับเก็บ List ของ FarmData
 
   void _loadFarmData() async {
     try {
       String jsonData = await fetchFarmData();
       setState(() {
-        farms = parseFarms(jsonData).cast<FarmData>();
+        farms = parseFarms(jsonData)
+            .cast<FarmData>(); // แปลง JSON เป็น FarmData List
         data = jsonData;
       });
     } catch (e) {
@@ -101,6 +107,7 @@ class _FarmPageState extends State<FarmPage> {
     }
   }
 
+  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<FarmData>
   void _addFakeFarm() {
     final fakeFarm = FarmData(
       farm_id: farms.length + 1,
@@ -116,6 +123,7 @@ class _FarmPageState extends State<FarmPage> {
     });
   }
 
+  // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูลของฟาร์ม
   void _openEditModal(FarmData farm) {
     final TextEditingController nameController =
         TextEditingController(text: farm.farm_name);
@@ -240,6 +248,7 @@ class _FarmPageState extends State<FarmPage> {
                                 _openEditModal(farm);
                               },
                             ),
+                            // ปุ่ม Delete
                             IconButton(
                               icon: const Icon(Icons.delete),
                               onPressed: () {

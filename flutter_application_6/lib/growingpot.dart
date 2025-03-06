@@ -3,8 +3,9 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-const String url = 'http://192.168.81.223:5000/api/viewGrowing/1';
+const String url = 'http://192.168.1.120:5000/api/viewGrowing/1';
 
+// ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData() async {
   try {
     final response = await http.get(Uri.parse(url));
@@ -16,10 +17,11 @@ Future<String> fetchData() async {
           'Failed to load data. Status code: ${response.statusCode}');
     }
   } catch (e) {
-    throw Exception('Failed to load data: $e');
+    throw Exception('Failed to load data in fetchData: $e');
   }
 }
 
+// ฟังก์ชันสำหรับ POST ข้อมูล (จำลองการเพิ่มข้อมูล)
 Future<String> postData(Map<String, dynamic> data) async {
   try {
     final response = await http.post(
@@ -40,6 +42,7 @@ Future<String> postData(Map<String, dynamic> data) async {
   }
 }
 
+// ฟังก์ชันสำหรับ PUT ข้อมูล (จำลองการแก้ไขข้อมูล)
 Future<String> putData(Map<String, dynamic> data) async {
   try {
     final response = await http.put(
@@ -60,6 +63,7 @@ Future<String> putData(Map<String, dynamic> data) async {
   }
 }
 
+// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI)
 Future<void> deleteData(int growingPotId) async {
   try {
     final deleteUrl = '$url/$growingPotId';
@@ -73,6 +77,7 @@ Future<void> deleteData(int growingPotId) async {
   }
 }
 
+// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI และ API)
 void deleteGrowingPot(
     List<GrowingPot> pots, int potId, Function updateUI) async {
   try {
@@ -84,6 +89,7 @@ void deleteGrowingPot(
   }
 }
 
+// ฟังก์ชันสำหรับแก้ไขข้อมูล GrowingPot (แก้ไข ai_result, pot_name)
 void editGrowingPot(List<GrowingPot> pots, int potId, String newAiResult,
     String newPotName, Function updateUI) {
   GrowingPot pot = pots.firstWhere((pot) => pot.growingPotId == potId);
@@ -92,6 +98,7 @@ void editGrowingPot(List<GrowingPot> pots, int potId, String newAiResult,
   updateUI();
 }
 
+// แปลง JSON เป็น List<GrowingPot>
 List<GrowingPot> parseGrowingPots(String jsonStr) {
   final decoded = json.decode(jsonStr);
   if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
@@ -110,8 +117,8 @@ class GrowingpotPage extends StatefulWidget {
 }
 
 class _GrowingpotPageState extends State<GrowingpotPage> {
-  String data = '';
-  List<GrowingPot> pots = [];
+  String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
+  List<GrowingPot> pots = []; // สำหรับเก็บ List ของ GrowingPot
 
   void _loadData() async {
     try {
@@ -127,6 +134,7 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
     }
   }
 
+  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<GrowingPot>
   void _addFakeGrowingPot() {
     final fakePot = GrowingPot(
       growingPotId: pots.isEmpty ? 1013 : pots.last.growingPotId + 1,
@@ -144,6 +152,7 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
     });
   }
 
+  // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูล GrowingPot
   void _openEditModal(GrowingPot pot) {
     final TextEditingController aiResultController =
         TextEditingController(text: pot.aiResult);
@@ -273,6 +282,8 @@ class _GrowingpotPageState extends State<GrowingpotPage> {
     );
   }
 }
+
+// Model Classes
 
 class GrowingPot {
   final int growingPotId;

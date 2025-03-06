@@ -19,6 +19,7 @@ class _PinPageState extends State<PinPage> {
   void _submitPin() {
     String pin = _pinController.text;
     debugPrint("Entered PIN: $pin");
+    // ตรวจสอบ PIN แล้ว navigate ไปหน้าหลักหรือหน้าที่ต้องการ ถ้ารหัสถูกต้อง
   }
 
   @override

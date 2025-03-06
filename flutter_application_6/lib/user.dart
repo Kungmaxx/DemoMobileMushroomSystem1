@@ -6,6 +6,7 @@ import 'package:flutter/services.dart' show rootBundle;
 
 const String url = 'assets/user.json';
 
+// ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData() async {
   try {
     String jsonString = await rootBundle.loadString('assets/user.json');
@@ -16,6 +17,7 @@ Future<String> fetchData() async {
   }
 }
 
+// ฟังก์ชันสำหรับ POST ข้อมูล
 Future<String> postData(Map<String, dynamic> data) async {
   try {
     final response = await http.post(
@@ -36,6 +38,7 @@ Future<String> postData(Map<String, dynamic> data) async {
   }
 }
 
+// ฟังก์ชันสำหรับ PUT ข้อมูล
 Future<String> putData(Map<String, dynamic> data) async {
   try {
     final response = await http.put(
@@ -56,11 +59,13 @@ Future<String> putData(Map<String, dynamic> data) async {
   }
 }
 
+// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI)
 void deleteUser(List<User> users, int userId, Function updateUI) {
   users.removeWhere((user) => user.user_id == userId);
   updateUI();
 }
 
+// ฟังก์ชันสำหรับแก้ไขข้อมูลผู้ใช้
 void editUser(List<User> users, int userId, String newUsername,
     String newPassword, String newUuid, Function updateUI) {
   User user = users.firstWhere((user) => user.user_id == userId);
@@ -70,6 +75,7 @@ void editUser(List<User> users, int userId, String newUsername,
   updateUI();
 }
 
+// แปลง JSON เป็น User List
 List<User> parseUsers(String jsonStr) {
   final List<dynamic> jsonData = json.decode(jsonStr);
   return jsonData.map((data) => User.fromJson(data)).toList();
@@ -83,15 +89,15 @@ class UserPage extends StatefulWidget {
 }
 
 class _UserPageState extends State<UserPage> {
-  String data = '';
-  List<User> users = [];
+  String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
+  List<User> users = []; // สำหรับเก็บ List ของ User
 
   void _loadData() async {
     try {
       String jsonData = await fetchData();
       setState(() {
-        users = parseUsers(jsonData);
-        data = jsonData;
+        users = parseUsers(jsonData); // แปลง JSON เป็น User List
+        data = jsonData; // เก็บข้อมูล JSON
       });
     } catch (e) {
       setState(() {
@@ -100,18 +106,20 @@ class _UserPageState extends State<UserPage> {
     }
   }
 
+  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<User>
   void _addFakeUser() {
     final fakeUser = User(
-      user_id: users.length + 1,
+      user_id: users.length + 1, // ใช้จำนวนผู้ใช้ที่มีอยู่ + 1
       username: 'New User ${users.length + 1}',
       password: 'password123',
       uuid: 'fake-uuid-${users.length + 1}',
     );
     setState(() {
-      users.add(fakeUser);
+      users.add(fakeUser); // เพิ่มข้อมูลหลอก
     });
   }
 
+  // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูลผู้ใช้
   void _openEditModal(User user) {
     final TextEditingController usernameController =
         TextEditingController(text: user.username);
@@ -152,6 +160,7 @@ class _UserPageState extends State<UserPage> {
             ),
             TextButton(
               onPressed: () {
+                // เรียกฟังก์ชันแก้ไขข้อมูล
                 editUser(
                   users,
                   user.user_id,
@@ -178,6 +187,7 @@ class _UserPageState extends State<UserPage> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          // ถ้ามีข้อมูลผู้ใช้ให้แสดงใน ListView
           if (users.isNotEmpty)
             Expanded(
               child: ListView.builder(
@@ -196,17 +206,20 @@ class _UserPageState extends State<UserPage> {
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
+                          // ปุ่ม Edit
                           IconButton(
                             icon: const Icon(Icons.edit),
                             onPressed: () {
-                              _openEditModal(user);
+                              _openEditModal(
+                                  user); // เปิด Modal เพื่อแก้ไขข้อมูล
                             },
                           ),
+                          // ปุ่ม Delete
                           IconButton(
                             icon: const Icon(Icons.delete),
                             onPressed: () {
                               deleteUser(users, user.user_id, () {
-                                setState(() {});
+                                setState(() {}); // อัพเดต UI หลังจากลบข้อมูล
                               });
                             },
                           ),
@@ -217,6 +230,7 @@ class _UserPageState extends State<UserPage> {
                 },
               ),
             ),
+          // แสดงข้อมูล JSON หากไม่มีผู้ใช้
           if (data.isNotEmpty && users.isEmpty)
             Text(
               data,
@@ -227,8 +241,10 @@ class _UserPageState extends State<UserPage> {
             child: const Text('GET Data'),
           ),
           const SizedBox(height: 20),
+          // ปุ่ม POST Data
           ElevatedButton(
             onPressed: () {
+              // เรียกฟังก์ชันเพิ่มข้อมูลหลอก
               _addFakeUser();
             },
             child: const Text('Post Data'),
