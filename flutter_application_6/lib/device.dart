@@ -24,16 +24,22 @@ Future<String> fetchData() async {
 }
 
 // ฟังก์ชันสำหรับ POST ข้อมูลไปยัง API
-Future<String> postData(Map<String, dynamic> data) async {
+Future<void> postData(Device newDevice, Function _loadData) async {
   try {
     final response = await http.post(
       Uri.parse(apiUrl),
       headers: {'Content-Type': 'application/json'},
-      body: json.encode(data),
+      body: json.encode({
+        'device_name': newDevice.device_name,
+        'description': newDevice.description,
+        'device_type': newDevice.device_type,
+        'status': newDevice.status,
+      }),
     );
     if (response.statusCode == 201) {
       print("postData 201");
-      return response.body;
+      // Reload data after adding
+      _loadData();
     } else {
       throw Exception(
           'Failed to post data. Status code: ${response.statusCode}');
@@ -78,13 +84,61 @@ Future<void> deleteData(int deviceId) async {
 }
 
 // ฟังก์ชันสำหรับแก้ไขข้อมูลอุปกรณ์
-void editDevice(List<Device> devices, int deviceId, String newName,
-    String newDescription, String newStatus, Function updateUI) {
-  Device device = devices.firstWhere((device) => device.device_id == deviceId);
-  device.device_name = newName;
-  device.description = newDescription;
-  device.status = newStatus;
-  updateUI();
+Future<void> editDevice(
+    BuildContext context,
+    Device device,
+    String newName,
+    String newDescription,
+    String newType,
+    String newStatus,
+    Function updateUI) async {
+  if (newName.isEmpty || newDescription.isEmpty || newStatus.isEmpty) {
+    // Show an alert if any field is empty
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Error'),
+          content: const Text('Please fill in all fields'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
+    return;
+  }
+
+  try {
+    final response = await http.put(
+      Uri.parse('$apiUrl/${device.device_id}'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'device_name': newName,
+        'description': newDescription,
+        'device_type': newType,
+        'status': newStatus,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      device.device_name = newName;
+      device.description = newDescription;
+      device.device_type = newType;
+      device.status = newStatus;
+      updateUI();
+    } else {
+      throw Exception(
+          'Failed to update data. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('Failed to update data: $e');
+  }
 }
 
 // ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI และ API)
@@ -116,6 +170,12 @@ class DevicePage extends StatefulWidget {
 }
 
 class _DevicePageState extends State<DevicePage> {
+  @override
+  void initState() {
+    super.initState();
+    _loadData(); // Call _loadData when the page is initialized
+  }
+
   String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
   List<Device> devices = []; // สำหรับเก็บ List ของ Device
 
@@ -133,49 +193,74 @@ class _DevicePageState extends State<DevicePage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<Device>
-  void _addFakeDevice() {
-    final fakeDevice = Device(
-      device_id: devices.length + 10001, // device_id เริ่มจาก 10001
-      device_name: 'Sensor_${devices.length + 1}',
-      description: 'Fake Sensor ${devices.length + 1}',
-      status: 'active',
-    );
-    setState(() {
-      devices.add(fakeDevice); // เพิ่มข้อมูลหลอก
-    });
-  }
-
   // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูลอุปกรณ์
   void _openEditModal(Device device) {
     final TextEditingController nameController =
         TextEditingController(text: device.device_name);
     final TextEditingController descriptionController =
         TextEditingController(text: device.description);
-    final TextEditingController statusController =
-        TextEditingController(text: device.status);
+    String selectedType = device.device_type;
+    String selectedStatus = device.status;
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Edit Device'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Device Name'),
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-              ),
-              TextField(
-                controller: statusController,
-                decoration: const InputDecoration(labelText: 'Status'),
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Device Name'),
+                ),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedType.isEmpty ? null : selectedType,
+                  decoration: const InputDecoration(labelText: 'Device Type'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'เครื่องเพาะ',
+                      child: Text('เครื่องเพาะ'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'เครื่องปลูก',
+                      child: Text('เครื่องปลูก'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedType = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Device Type'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus.isEmpty ? null : selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Active',
+                      child: Text('Active'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Inactive',
+                      child: Text('Inactive'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedStatus = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Status'),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -185,18 +270,113 @@ class _DevicePageState extends State<DevicePage> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                // เรียกฟังก์ชันแก้ไขข้อมูล
-                editDevice(
-                  devices,
-                  device.device_id,
+              onPressed: () async {
+                await editDevice(
+                  context,
+                  device,
                   nameController.text,
                   descriptionController.text,
-                  statusController.text,
+                  selectedType,
+                  selectedStatus,
                   () {
                     setState(() {});
                   },
                 );
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ฟังก์ชันสำหรับเปิด modal เพิ่มข้อมูลอุปกรณ์
+  void _openAddModal() {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController descriptionController = TextEditingController();
+    String selectedType = '';
+    String selectedStatus = '';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Device'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Device Name'),
+                ),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedType.isEmpty ? null : selectedType,
+                  decoration: const InputDecoration(labelText: 'Device Type'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'เครื่องเพาะ',
+                      child: Text('เครื่องเพาะ'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'เครื่องปลูก',
+                      child: Text('เครื่องปลูก'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedType = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Device Type'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus.isEmpty ? null : selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Active',
+                      child: Text('Active'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Inactive',
+                      child: Text('Inactive'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedStatus = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Status'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final newDevice = Device(
+                  device_id:
+                      devices.isNotEmpty ? devices.last.device_id + 1 : 1,
+                  device_name: nameController.text,
+                  description: descriptionController.text,
+                  device_type: selectedType,
+                  status: selectedStatus,
+                );
+                await postData(newDevice, _loadData);
                 Navigator.of(context).pop();
               },
               child: const Text('Save'),
@@ -229,7 +409,10 @@ class _DevicePageState extends State<DevicePage> {
                         ),
                         title: Text(device.device_name),
                         subtitle: Text(
-                            'Description: ${device.description}\nStatus: ${device.status}'),
+                          'Description: ${device.description}\n'
+                          'Device Type: ${device.device_type}\n'
+                          'Status: ${device.status}',
+                        ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -261,14 +444,10 @@ class _DevicePageState extends State<DevicePage> {
                 data,
                 style: const TextStyle(fontSize: 18),
               ),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('GET Data'),
-            ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _addFakeDevice,
-              child: const Text('Post Data'),
+              onPressed: _openAddModal,
+              child: const Text('POST Data'),
             ),
           ],
         ),
@@ -282,21 +461,37 @@ class Device {
   final int device_id;
   String device_name;
   String description;
+  String device_type;
   String status;
 
   Device({
     required this.device_id,
     required this.device_name,
     required this.description,
+    required this.device_type,
     required this.status,
   });
 
   factory Device.fromJson(Map<String, dynamic> json) {
+    String rawStatus = json['status'] ?? '';
+    // แปลงให้เป็น "Active"/"Inactive"
+    String capitalizedStatus =
+        rawStatus.toLowerCase() == 'active' ? 'Active' : 'Inactive';
+
+    String rawType = json['device_type'] ?? '';
+    // แปลงให้เป็น "เครื่องเพาะ"/"เครื่องปลูก"
+    String translatedType = rawType.toLowerCase() == 'cultivation'
+        ? 'เครื่องเพาะ'
+        : rawType.toLowerCase() == 'growing'
+            ? 'เครื่องปลูก'
+            : rawType;
+
     return Device(
       device_id: json['device_id'],
-      device_name: json['device_name'],
-      description: json['description'],
-      status: json['status'],
+      device_name: json['device_name'] ?? '',
+      description: json['description'] ?? '',
+      device_type: translatedType,
+      status: capitalizedStatus,
     );
   }
 }

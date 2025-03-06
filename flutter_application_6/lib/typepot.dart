@@ -22,30 +22,70 @@ Future<String> fetchData() async {
 }
 
 // ฟังก์ชันสำหรับ POST ข้อมูล (จำลองการเพิ่มข้อมูล)
-Future<String> postData(Map<String, dynamic> data) async {
+Future<void> postTypepotData(Typepot newTypepot, Function _loadData) async {
   try {
-    // สำหรับตัวอย่างนี้ เราจำลองการ POST โดยไม่ส่งข้อมูลไปเซิร์ฟเวอร์จริง
-    print("Post Data: $data");
-    return Future.value(json.encode(data));
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(newTypepot.toJson()),
+    );
+    if (response.statusCode == 201) {
+      _loadData();
+    } else {
+      throw Exception(
+          'Failed to post data. Status code: ${response.statusCode}');
+    }
   } catch (e) {
     throw Exception('Failed to post data: $e');
   }
 }
 
 // ฟังก์ชันสำหรับ PUT ข้อมูล (จำลองการแก้ไขข้อมูล)
-Future<String> putData(Map<String, dynamic> data) async {
+Future<void> putTypepotData(Typepot updatedTypepot, Function _loadData) async {
   try {
-    print("Put Data: $data");
-    return Future.value(json.encode(data));
+    final response = await http.put(
+      Uri.parse('$url/${updatedTypepot.type_pot_id}'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode(updatedTypepot.toJson()),
+    );
+    if (response.statusCode == 200) {
+      _loadData();
+    } else {
+      throw Exception(
+          'Failed to update data. Status code: ${response.statusCode}');
+    }
   } catch (e) {
     throw Exception('Failed to update data: $e');
   }
 }
 
+Future<void> deleteTypepotData(int typePotId, Function _loadData) async {
+  try {
+    final response = await http.delete(
+      Uri.parse('$url/$typePotId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (response.statusCode == 200) {
+      _loadData();
+    } else {
+      throw Exception(
+          'Failed to delete data. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('Failed to delete data: $e');
+  }
+}
+
 // ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI)
-void deleteTypepot(List<Typepot> typepots, int typePotId, Function updateUI) {
-  typepots.removeWhere((item) => item.type_pot_id == typePotId);
-  updateUI();
+void deleteTypepot(List<Typepot> typepots, int typePotId, Function updateUI,
+    Function _loadData) async {
+  try {
+    await deleteTypepotData(typePotId, _loadData);
+    typepots.removeWhere((item) => item.type_pot_id == typePotId);
+    updateUI();
+  } catch (e) {
+    throw Exception('Failed to delete typepot: $e');
+  }
 }
 
 // ฟังก์ชันสำหรับแก้ไขข้อมูล Typepot
@@ -77,6 +117,12 @@ class TypepotPage extends StatefulWidget {
 }
 
 class _TypepotPageState extends State<TypepotPage> {
+  @override
+  void initState() {
+    super.initState();
+    _loadData(); // Call _loadData when the page is initialized
+  }
+
   String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
   List<Typepot> typepots = []; // สำหรับเก็บ List ของ Typepot
 
@@ -94,50 +140,53 @@ class _TypepotPageState extends State<TypepotPage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอก (Post Data)
-  void _addFakeTypepot() {
-    final fakeTypepot = Typepot(
-      type_pot_id: typepots.isEmpty ? 111101 : typepots.last.type_pot_id + 1,
-      type_pot_name: 'New Typepot ${typepots.length + 1}',
-      description: 'Fake description ${typepots.length + 1}',
-      status: 1,
-    );
-    setState(() {
-      typepots.add(fakeTypepot);
-    });
-  }
-
   // ฟังก์ชันเปิด modal แก้ไขข้อมูล Typepot
   void _openEditModal(Typepot item) {
     final TextEditingController nameController =
         TextEditingController(text: item.type_pot_name);
     final TextEditingController descriptionController =
         TextEditingController(text: item.description);
-    final TextEditingController statusController =
-        TextEditingController(text: item.status.toString());
+    String selectedStatus = item.status == 1 ? 'Active' : 'Inactive';
 
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Edit Typepot'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(labelText: 'Typepot Name'),
-              ),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(labelText: 'Description'),
-              ),
-              TextField(
-                controller: statusController,
-                decoration: const InputDecoration(labelText: 'Status'),
-                keyboardType: TextInputType.number,
-              ),
-            ],
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Typepot Name'),
+                ),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus.isEmpty ? null : selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Active',
+                      child: Text('Active'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Inactive',
+                      child: Text('Inactive'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedStatus = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Status'),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(
@@ -147,17 +196,86 @@ class _TypepotPageState extends State<TypepotPage> {
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () {
-                editTypepot(
-                  typepots,
-                  item.type_pot_id,
-                  nameController.text,
-                  descriptionController.text,
-                  int.tryParse(statusController.text) ?? 1,
-                  () {
-                    setState(() {});
-                  },
+              onPressed: () async {
+                final updatedTypepot = Typepot(
+                  type_pot_id: item.type_pot_id,
+                  type_pot_name: nameController.text,
+                  description: descriptionController.text,
+                  status: selectedStatus == 'Active' ? 1 : 0,
                 );
+                await putTypepotData(updatedTypepot, _loadData);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openAddModal() {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController descriptionController = TextEditingController();
+    String selectedStatus = '';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Typepot'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Typepot Name'),
+                ),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus.isEmpty ? null : selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Active',
+                      child: Text('Active'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Inactive',
+                      child: Text('Inactive'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedStatus = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Status'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final newTypepot = Typepot(
+                  type_pot_id:
+                      typepots.isNotEmpty ? typepots.last.type_pot_id + 1 : 1,
+                  type_pot_name: nameController.text,
+                  description: descriptionController.text,
+                  status: selectedStatus == 'Active' ? 1 : 0,
+                );
+                await postTypepotData(newTypepot, _loadData);
                 Navigator.of(context).pop();
               },
               child: const Text('Save'),
@@ -191,7 +309,7 @@ class _TypepotPageState extends State<TypepotPage> {
                         ),
                         title: Text(item.type_pot_name),
                         subtitle: Text(
-                            'Description: ${item.description}\nStatus: ${item.status}'),
+                            'Description: ${item.description}\nStatus: ${item.status == 1 ? 'Active' : 'Inactive'}'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -208,7 +326,7 @@ class _TypepotPageState extends State<TypepotPage> {
                               onPressed: () {
                                 deleteTypepot(typepots, item.type_pot_id, () {
                                   setState(() {});
-                                });
+                                }, _loadData);
                               },
                             ),
                           ],
@@ -224,13 +342,9 @@ class _TypepotPageState extends State<TypepotPage> {
                 data,
                 style: const TextStyle(fontSize: 18),
               ),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('GET Data'),
-            ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _addFakeTypepot,
+              onPressed: _openAddModal,
               child: const Text('Post Data'),
             ),
           ],
@@ -258,8 +372,16 @@ class Typepot {
       type_pot_id: json['type_pot_id'],
       type_pot_name: json['type_pot_name'],
       description: json['description'],
-      status:
-          json['status'] is bool ? (json['status'] ? 1 : 0) : json['status'],
+      status: json['status'] == true ? 1 : 0,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'type_pot_id': type_pot_id,
+      'type_pot_name': type_pot_name,
+      'description': description,
+      'status': status == 1,
+    };
   }
 }

@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-const String url = 'assets/farms.json';
 const String urlApi = 'http://192.168.1.120:5000/api/farm';
 
 // ฟังก์ชันโหลดข้อมูล JSON สำหรับ farm
@@ -23,17 +22,24 @@ Future<String> fetchFarmData() async {
 }
 
 // ฟังก์ชันสำหรับ POST farm (ตัวอย่างส่ง HTTP request)
-Future<String> postFarmData(Map<String, dynamic> data) async {
+Future<void> postFarmData(FarmData newFarm, Function _loadFarmData) async {
   try {
     final response = await http.post(
       Uri.parse(urlApi),
       headers: {'Content-Type': 'application/json'},
-      body: json.encode(data),
+      body: json.encode({
+        'farm_name': newFarm.farm_name,
+        'farm_type': newFarm.farm_type,
+        'farm_description': newFarm.farm_description,
+        'farm_status': newFarm.farm_status,
+        'temperature': newFarm.temperature,
+        'humidity': newFarm.humidity,
+      }),
     );
-
     if (response.statusCode == 201) {
       print("postFarmData 201");
-      return response.body;
+      // Reload data after adding
+      _loadFarmData();
     } else {
       throw Exception(
           'Failed to post farm data. Status code: ${response.statusCode}');
@@ -44,17 +50,25 @@ Future<String> postFarmData(Map<String, dynamic> data) async {
 }
 
 // ฟังก์ชันสำหรับ PUT farm (ตัวอย่างส่ง HTTP request)
-Future<String> putFarmData(Map<String, dynamic> data) async {
+Future<void> putFarmData(FarmData updatedFarm, Function _loadFarmData) async {
   try {
     final response = await http.put(
-      Uri.parse(urlApi),
+      Uri.parse('$urlApi/${updatedFarm.farm_id}'),
       headers: {'Content-Type': 'application/json'},
-      body: json.encode(data),
+      body: json.encode({
+        'farm_name': updatedFarm.farm_name,
+        'farm_type': updatedFarm.farm_type,
+        'farm_description': updatedFarm.farm_description,
+        'farm_status': updatedFarm.farm_status,
+        'temperature': updatedFarm.temperature,
+        'humidity': updatedFarm.humidity,
+      }),
     );
 
     if (response.statusCode == 200) {
       print("putFarmData 200");
-      return response.body;
+      // Reload data after updating
+      _loadFarmData();
     } else {
       throw Exception(
           'Failed to update farm data. Status code: ${response.statusCode}');
@@ -64,10 +78,36 @@ Future<String> putFarmData(Map<String, dynamic> data) async {
   }
 }
 
+Future<void> deleteFarmData(int farmId, Function _loadFarmData) async {
+  try {
+    final response = await http.delete(
+      Uri.parse('$urlApi/$farmId'),
+      headers: {'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      print("deleteFarmData 200");
+      // Reload data after deleting
+      _loadFarmData();
+    } else {
+      throw Exception(
+          'Failed to delete farm data. Status code: ${response.statusCode}');
+    }
+  } catch (e) {
+    throw Exception('Failed to delete farm data: $e');
+  }
+}
+
 // ฟังก์ชันสำหรับ DELETE farm (ลบข้อมูลจาก UI)
-void deleteFarm(List<FarmData> farms, int farmId, Function updateUI) {
-  farms.removeWhere((farm) => farm.farm_id == farmId);
-  updateUI();
+void deleteFarm(List<FarmData> farms, int farmId, Function updateUI,
+    Function loadFarmData) async {
+  try {
+    await deleteFarmData(farmId, loadFarmData);
+    farms.removeWhere((farm) => farm.farm_id == farmId);
+    updateUI();
+  } catch (e) {
+    throw Exception('Failed to delete farm: $e');
+  }
 }
 
 // แปลง JSON เป็น FarmData List
@@ -89,6 +129,12 @@ class FarmPage extends StatefulWidget {
 }
 
 class _FarmPageState extends State<FarmPage> {
+  @override
+  void initState() {
+    super.initState();
+    _loadFarmData(); // Call _loadData when the page is initialized
+  }
+
   String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
   List<FarmData> farms = []; // สำหรับเก็บ List ของ FarmData
 
@@ -107,110 +153,197 @@ class _FarmPageState extends State<FarmPage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอกเข้าไปใน List<FarmData>
-  void _addFakeFarm() {
-    final fakeFarm = FarmData(
-      farm_id: farms.length + 1,
-      farm_name: 'New Farm ${farms.length + 1}',
-      farm_type: 'Unknown',
-      farm_description: 'Description of New Farm ${farms.length + 1}',
-      farm_status: 1,
-      temperature: 20.0,
-      humidity: 50.0,
-    );
-    setState(() {
-      farms.add(fakeFarm);
-    });
-  }
-
   // ฟังก์ชันสำหรับเปิด modal แก้ไขข้อมูลของฟาร์ม
   void _openEditModal(FarmData farm) {
     final TextEditingController nameController =
         TextEditingController(text: farm.farm_name);
-    final TextEditingController typeController =
-        TextEditingController(text: farm.farm_type);
     final TextEditingController descriptionController =
         TextEditingController(text: farm.farm_description);
-    final TextEditingController statusController =
-        TextEditingController(text: farm.farm_status.toString());
-    final TextEditingController tempController =
-        TextEditingController(text: farm.temperature.toString());
-    final TextEditingController humidityController =
-        TextEditingController(text: farm.humidity.toString());
+    String selectedType = farm.farm_type;
+    String selectedStatus = farm.farm_status == 1 ? 'Active' : 'Inactive';
 
     showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('Edit Farm'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameController,
-                    decoration: const InputDecoration(labelText: 'Farm Name'),
-                  ),
-                  TextField(
-                    controller: typeController,
-                    decoration: const InputDecoration(labelText: 'Farm Type'),
-                  ),
-                  TextField(
-                    controller: descriptionController,
-                    decoration: const InputDecoration(labelText: 'Description'),
-                  ),
-                  TextField(
-                    controller: statusController,
-                    decoration: const InputDecoration(labelText: 'Status'),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: tempController,
-                    decoration: const InputDecoration(labelText: 'Temperature'),
-                    keyboardType: TextInputType.number,
-                  ),
-                  TextField(
-                    controller: humidityController,
-                    decoration: const InputDecoration(labelText: 'Humidity'),
-                    keyboardType: TextInputType.number,
-                  ),
-                ],
-              ),
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Farm'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Farm Name'),
+                ),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedType.isEmpty ? null : selectedType,
+                  decoration: const InputDecoration(labelText: 'Farm Type'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'โรงเพาะ',
+                      child: Text('โรงเพาะ'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'โรงปลูก',
+                      child: Text('โรงปลูก'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedType = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Farm Type'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus.isEmpty ? null : selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Active',
+                      child: Text('Active'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Inactive',
+                      child: Text('Inactive'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedStatus = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Status'),
+                ),
+              ],
             ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () {
-                  setState(() {
-                    int index =
-                        farms.indexWhere((f) => f.farm_id == farm.farm_id);
-                    if (index != -1) {
-                      farms[index] = FarmData(
-                        farm_id: farm.farm_id,
-                        farm_name: nameController.text,
-                        farm_type: typeController.text,
-                        farm_description: descriptionController.text,
-                        farm_status: int.tryParse(statusController.text) ??
-                            farm.farm_status,
-                        temperature: double.tryParse(tempController.text) ??
-                            farm.temperature,
-                        humidity: double.tryParse(humidityController.text) ??
-                            farm.humidity,
-                      );
-                    }
-                  });
-                  Navigator.of(context).pop();
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        });
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final updatedFarm = FarmData(
+                  farm_id: farm.farm_id,
+                  farm_name: nameController.text,
+                  farm_type: selectedType,
+                  farm_description: descriptionController.text,
+                  farm_status: selectedStatus == 'Active' ? 1 : 0,
+                  temperature: farm.temperature,
+                  humidity: farm.humidity,
+                );
+                await putFarmData(updatedFarm, _loadFarmData);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openAddModal() {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController descriptionController = TextEditingController();
+    String selectedType = '';
+    String selectedStatus = '';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Farm'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(labelText: 'Farm Name'),
+                ),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(labelText: 'Description'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedType.isEmpty ? null : selectedType,
+                  decoration: const InputDecoration(labelText: 'Farm Type'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'โรงเพาะ',
+                      child: Text('โรงเพาะ'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'โรงปลูก',
+                      child: Text('โรงปลูก'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedType = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Farm Type'),
+                ),
+                DropdownButtonFormField<String>(
+                  value: selectedStatus.isEmpty ? null : selectedStatus,
+                  decoration: const InputDecoration(labelText: 'Status'),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'Active',
+                      child: Text('Active'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'Inactive',
+                      child: Text('Inactive'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      selectedStatus = value ?? '';
+                    });
+                  },
+                  hint: const Text('Select Status'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final newFarm = FarmData(
+                  farm_id: farms.isNotEmpty ? farms.last.farm_id + 1 : 1,
+                  farm_name: nameController.text,
+                  farm_type: selectedType,
+                  farm_description: descriptionController.text,
+                  farm_status: selectedStatus == 'Active' ? 1 : 0,
+                  temperature: 20.0,
+                  humidity: 50.0,
+                );
+                await postFarmData(newFarm, _loadFarmData);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -236,7 +369,7 @@ class _FarmPageState extends State<FarmPage> {
                         subtitle: Text(
                           'Type: ${farm.farm_type}\n'
                           'Desc: ${farm.farm_description}\n'
-                          'Temp: ${farm.temperature}, Humidity: ${farm.humidity}',
+                          'Status: ${farm.farm_status == 1 ? 'Active' : 'Inactive'}\n',
                         ),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -254,7 +387,7 @@ class _FarmPageState extends State<FarmPage> {
                               onPressed: () {
                                 deleteFarm(farms, farm.farm_id, () {
                                   setState(() {});
-                                });
+                                }, _loadFarmData);
                               },
                             ),
                           ],
@@ -270,13 +403,8 @@ class _FarmPageState extends State<FarmPage> {
                 style: const TextStyle(fontSize: 18),
               ),
             ElevatedButton(
-              onPressed: _loadFarmData,
-              child: const Text('GET Farm Data'),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _addFakeFarm,
-              child: const Text('Post Farm Data'),
+              onPressed: _openAddModal,
+              child: const Text('POST Farm Data'),
             ),
           ],
         ),

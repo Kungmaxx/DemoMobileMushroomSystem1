@@ -3,7 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-const String url = 'http://192.168.1.120:5000/api/viewGrowing/1';
+const String url = 'http://192.168.1.120:5000/api/viewGrowing/9';
 
 // ฟังก์ชันโหลดข้อมูล JSON
 Future<String> fetchData() async {

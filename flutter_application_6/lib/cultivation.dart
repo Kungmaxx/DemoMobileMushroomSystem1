@@ -4,13 +4,14 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 const String url = 'http://192.168.1.120:5000/api/cultivation';
+const String deviceUrl = 'http://192.168.1.120:5000/api/device';
+const String farmUrl = 'http://192.168.1.120:5000/api/farm';
 
 // ฟังก์ชันโหลดข้อมูล JSON
-Future<String> fetchData() async {
+Future<String> fetchData(String apiUrl) async {
   try {
-    final response = await http.get(Uri.parse(url));
+    final response = await http.get(Uri.parse(apiUrl));
     if (response.statusCode == 200) {
-      debugPrint(response.body);
       return response.body;
     } else {
       throw Exception(
@@ -22,17 +23,15 @@ Future<String> fetchData() async {
 }
 
 // ฟังก์ชันสำหรับ POST ข้อมูล
-Future<String> postData(Map<String, dynamic> data) async {
+Future<void> postData(Map<String, dynamic> data, Function _loadData) async {
   try {
     final response = await http.post(
       Uri.parse(url),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
-
     if (response.statusCode == 201) {
-      print("postData 201");
-      return response.body;
+      _loadData();
     } else {
       throw Exception(
           'Failed to post data. Status code: ${response.statusCode}');
@@ -43,17 +42,16 @@ Future<String> postData(Map<String, dynamic> data) async {
 }
 
 // ฟังก์ชันสำหรับ PUT ข้อมูล
-Future<String> putData(Map<String, dynamic> data) async {
+Future<void> putData(
+    int id, Map<String, dynamic> data, Function _loadData) async {
   try {
     final response = await http.put(
-      Uri.parse(url),
+      Uri.parse('$url/$id'),
       headers: {'Content-Type': 'application/json'},
       body: json.encode(data),
     );
-
     if (response.statusCode == 200) {
-      print("putData 200");
-      return response.body;
+      _loadData();
     } else {
       throw Exception(
           'Failed to update data. Status code: ${response.statusCode}');
@@ -64,39 +62,21 @@ Future<String> putData(Map<String, dynamic> data) async {
 }
 
 // ฟังก์ชันสำหรับ DELETE ข้อมูล
-Future<void> deleteData(int cultivationId) async {
+Future<void> deleteData(int id, Function _loadData) async {
   try {
-    final deleteUrl = '$url/$cultivationId';
-    final response = await http.delete(Uri.parse(deleteUrl));
-    if (response.statusCode != 200) {
+    final response = await http.delete(
+      Uri.parse('$url/$id'),
+      headers: {'Content-Type': 'application/json'},
+    );
+    if (response.statusCode == 200) {
+      _loadData();
+    } else {
       throw Exception(
           'Failed to delete data. Status code: ${response.statusCode}');
     }
   } catch (e) {
     throw Exception('Failed to delete data: $e');
   }
-}
-
-// ฟังก์ชันสำหรับ DELETE ข้อมูล (ลบข้อมูลจาก UI และ API)
-void deleteCultivation(List<Cultivation> cultivations, int cultivationId,
-    Function updateUI) async {
-  try {
-    await deleteData(cultivationId);
-    cultivations.removeWhere((item) => item.cultivation_id == cultivationId);
-    updateUI();
-  } catch (e) {
-    throw Exception('Failed to delete cultivation: $e');
-  }
-}
-
-// ฟังก์ชันสำหรับแก้ไขข้อมูล Cultivation
-void editCultivation(List<Cultivation> cultivations, int cultivationId,
-    int newFarmId, int newDeviceId, Function updateUI) {
-  Cultivation item =
-      cultivations.firstWhere((item) => item.cultivation_id == cultivationId);
-  item.farm_id = newFarmId;
-  item.device_id = newDeviceId;
-  updateUI();
 }
 
 // แปลง JSON เป็น List<Cultivation>
@@ -120,13 +100,27 @@ class CultivationPage extends StatefulWidget {
 class _CultivationPageState extends State<CultivationPage> {
   String data = ''; // สำหรับเก็บข้อมูล JSON ที่โหลดมา
   List<Cultivation> cultivations = []; // สำหรับเก็บ List ของ cultivation
+  List<Device> devices = [];
+  List<Farm> farms = [];
+  String selectedDevice = '';
+  String selectedFarm = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
 
   void _loadData() async {
     try {
-      String jsonData = await fetchData();
+      String cultivationData = await fetchData(url);
+      String deviceData = await fetchData(deviceUrl);
+      String farmData = await fetchData(farmUrl);
+
       setState(() {
-        cultivations = parseCultivations(jsonData);
-        data = jsonData;
+        cultivations = parseCultivations(cultivationData);
+        devices = parseDevices(deviceData);
+        farms = parseFarms(farmData);
       });
     } catch (e) {
       setState(() {
@@ -135,24 +129,31 @@ class _CultivationPageState extends State<CultivationPage> {
     }
   }
 
-  // ฟังก์ชันเพิ่มข้อมูลหลอก
-  void _addFakeCultivation() {
-    final fakeCultivation = Cultivation(
-      cultivation_id: cultivations.length + 1,
-      farm_id: cultivations.isEmpty ? 1 : cultivations.last.farm_id + 1,
-      device_id: cultivations.isEmpty ? 1 : cultivations.last.device_id + 1,
-    );
-    setState(() {
-      cultivations.add(fakeCultivation);
-    });
+  List<Device> parseDevices(String jsonStr) {
+    final decoded = json.decode(jsonStr);
+    if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
+      final List<dynamic> list = decoded['data'];
+      return list.map((data) => Device.fromJson(data)).toList();
+    } else {
+      throw Exception("Unexpected JSON format");
+    }
   }
 
-  // ฟังก์ชันเปิด modal แก้ไข farm_id และ device_id
+  List<Farm> parseFarms(String jsonStr) {
+    final decoded = json.decode(jsonStr);
+    if (decoded is Map<String, dynamic> && decoded.containsKey('data')) {
+      final List<dynamic> list = decoded['data'];
+      return list.map((data) => Farm.fromJson(data)).toList();
+    } else {
+      throw Exception("Unexpected JSON format");
+    }
+  }
+
   void _openEditModal(Cultivation item) {
-    final TextEditingController farmIdController =
-        TextEditingController(text: item.farm_id.toString());
-    final TextEditingController deviceIdController =
-        TextEditingController(text: item.device_id.toString());
+    String selectedDevice =
+        devices.firstWhere((d) => d.device_id == item.device_id).device_name;
+    String selectedFarm =
+        farms.firstWhere((f) => f.farm_id == item.farm_id).farm_name;
 
     showDialog(
       context: context,
@@ -162,15 +163,37 @@ class _CultivationPageState extends State<CultivationPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(
-                controller: farmIdController,
-                decoration: const InputDecoration(labelText: 'Farm ID'),
-                keyboardType: TextInputType.number,
+              DropdownButtonFormField<String>(
+                value: selectedFarm,
+                decoration: const InputDecoration(labelText: 'Farm Name'),
+                items: farms.map((farm) {
+                  return DropdownMenuItem(
+                    value: farm.farm_name,
+                    child: Text(farm.farm_name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedFarm = value ?? '';
+                  });
+                },
+                hint: const Text('Select Farm Name'),
               ),
-              TextField(
-                controller: deviceIdController,
-                decoration: const InputDecoration(labelText: 'Device ID'),
-                keyboardType: TextInputType.number,
+              DropdownButtonFormField<String>(
+                value: selectedDevice,
+                decoration: const InputDecoration(labelText: 'Device Name'),
+                items: devices.map((device) {
+                  return DropdownMenuItem(
+                    value: device.device_name,
+                    child: Text(device.device_name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedDevice = value ?? '';
+                  });
+                },
+                hint: const Text('Select Device Name'),
               ),
             ],
           ),
@@ -182,16 +205,95 @@ class _CultivationPageState extends State<CultivationPage> {
               child: const Text('Cancel'),
             ),
             TextButton(
+              onPressed: () async {
+                int newFarmId = farms
+                    .firstWhere((f) => f.farm_name == selectedFarm)
+                    .farm_id;
+                int newDeviceId = devices
+                    .firstWhere((d) => d.device_name == selectedDevice)
+                    .device_id;
+                await putData(
+                    item.cultivation_id,
+                    {
+                      'farm_id': newFarmId,
+                      'device_id': newDeviceId,
+                    },
+                    _loadData);
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _openAddModal() {
+    String selectedDevice = devices.isNotEmpty ? devices.first.device_name : '';
+    String selectedFarm = farms.isNotEmpty ? farms.first.farm_name : '';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add Cultivation'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: selectedFarm,
+                decoration: const InputDecoration(labelText: 'Farm Name'),
+                items: farms.map((farm) {
+                  return DropdownMenuItem(
+                    value: farm.farm_name,
+                    child: Text(farm.farm_name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedFarm = value ?? '';
+                  });
+                },
+                hint: const Text('Select Farm Name'),
+              ),
+              DropdownButtonFormField<String>(
+                value: selectedDevice,
+                decoration: const InputDecoration(labelText: 'Device Name'),
+                items: devices.map((device) {
+                  return DropdownMenuItem(
+                    value: device.device_name,
+                    child: Text(device.device_name),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  setState(() {
+                    selectedDevice = value ?? '';
+                  });
+                },
+                hint: const Text('Select Device Name'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
               onPressed: () {
-                int newFarmId =
-                    int.tryParse(farmIdController.text) ?? item.farm_id;
-                int newDeviceId =
-                    int.tryParse(deviceIdController.text) ?? item.device_id;
-                editCultivation(
-                    cultivations, item.cultivation_id, newFarmId, newDeviceId,
-                    () {
-                  setState(() {});
-                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () async {
+                int newFarmId = farms
+                    .firstWhere((f) => f.farm_name == selectedFarm)
+                    .farm_id;
+                int newDeviceId = devices
+                    .firstWhere((d) => d.device_name == selectedDevice)
+                    .device_id;
+                await postData({
+                  'farm_id': newFarmId,
+                  'device_id': newDeviceId,
+                }, _loadData);
                 Navigator.of(context).pop();
               },
               child: const Text('Save'),
@@ -215,6 +317,12 @@ class _CultivationPageState extends State<CultivationPage> {
                   itemCount: cultivations.length,
                   itemBuilder: (context, index) {
                     final item = cultivations[index];
+                    final deviceName = devices
+                        .firstWhere((d) => d.device_id == item.device_id)
+                        .device_name;
+                    final farmName = farms
+                        .firstWhere((f) => f.farm_id == item.farm_id)
+                        .farm_name;
                     return Card(
                       margin: const EdgeInsets.symmetric(
                           vertical: 8, horizontal: 16),
@@ -224,7 +332,7 @@ class _CultivationPageState extends State<CultivationPage> {
                         ),
                         title: Text('Cultivation ID: ${item.cultivation_id}'),
                         subtitle: Text(
-                            'Farm ID: ${item.farm_id}\nDevice ID: ${item.device_id}'),
+                            'Farm Name: $farmName\nDevice Name: $deviceName'),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -237,10 +345,7 @@ class _CultivationPageState extends State<CultivationPage> {
                             IconButton(
                               icon: const Icon(Icons.delete),
                               onPressed: () {
-                                deleteCultivation(
-                                    cultivations, item.cultivation_id, () {
-                                  setState(() {});
-                                });
+                                deleteData(item.cultivation_id, _loadData);
                               },
                             ),
                           ],
@@ -255,13 +360,9 @@ class _CultivationPageState extends State<CultivationPage> {
                 data,
                 style: const TextStyle(fontSize: 18),
               ),
-            ElevatedButton(
-              onPressed: _loadData,
-              child: const Text('GET Data'),
-            ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: _addFakeCultivation,
+              onPressed: _openAddModal,
               child: const Text('Post Data'),
             ),
           ],
@@ -288,6 +389,40 @@ class Cultivation {
       cultivation_id: json['cultivation_id'],
       farm_id: json['farm_id'],
       device_id: json['device_id'],
+    );
+  }
+}
+
+class Device {
+  final int device_id;
+  final String device_name;
+
+  Device({
+    required this.device_id,
+    required this.device_name,
+  });
+
+  factory Device.fromJson(Map<String, dynamic> json) {
+    return Device(
+      device_id: json['device_id'],
+      device_name: json['device_name'],
+    );
+  }
+}
+
+class Farm {
+  final int farm_id;
+  final String farm_name;
+
+  Farm({
+    required this.farm_id,
+    required this.farm_name,
+  });
+
+  factory Farm.fromJson(Map<String, dynamic> json) {
+    return Farm(
+      farm_id: json['farm_id'],
+      farm_name: json['farm_name'],
     );
   }
 }
