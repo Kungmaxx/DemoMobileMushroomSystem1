@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_6/custom_scaffold.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -355,8 +356,11 @@ class _GrowingPageState extends State<GrowingPage> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => GrowingpotPage(
-                                        growingId: item.growingId),
+                                    builder: (context) => CustomScaffold(
+                                      title: 'Growingpot Page',
+                                      body: GrowingpotPage(
+                                          growingId: item.growingId),
+                                    ),
                                   ),
                                 );
                               },
